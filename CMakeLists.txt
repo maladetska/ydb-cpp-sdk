@@ -59,6 +59,10 @@ add_subdirectory(include/ydb-cpp-sdk/client)
 add_subdirectory(src)
 add_subdirectory(util)
 
+if (YDB_SDK_HAS_OPEN_TELEMETRY)
+  add_subdirectory(open_telemetry EXCLUDE_FROM_ALL)
+endif()
+
 #_ydb_sdk_validate_public_headers()
 
 if (YDB_SDK_EXAMPLES)
