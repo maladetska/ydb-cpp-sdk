@@ -12,3 +12,5 @@ target_include_directories(client-metrics PUBLIC
 target_link_libraries(client-metrics PUBLIC
     client-extension_common
 )
+
+_ydb_sdk_make_client_component(Metrics client-metrics)
