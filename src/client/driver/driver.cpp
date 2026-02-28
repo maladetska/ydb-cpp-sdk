@@ -51,6 +51,8 @@ public:
     uint64_t GetMaxMessageSize() const override { return MaxMessageSize; }
     const TLog& GetLog() const override { return Log; }
     std::shared_ptr<IExecutor> GetExecutor() const override { return Executor; }
+    std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const override { return MetricExporter; }
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const override { return TraceExporter; }
 
     std::string Endpoint;
     size_t NetworkThreadsNum = 2;
@@ -80,6 +82,8 @@ public:
     uint64_t MaxMessageSize = 0;
     TLog Log; // Null by default.
     std::shared_ptr<IExecutor> Executor;
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricExporter;
+    std::shared_ptr<NMetrics::ITraceProvider> TraceExporter;
 };
 
 TDriverConfig::TDriverConfig(const std::string& connectionString)
@@ -229,6 +233,24 @@ TDriverConfig& TDriverConfig::SetExecutor(std::shared_ptr<IExecutor> executor) {
     return *this;
 }
 
+TDriverConfig& TDriverConfig::SetMetricExporter(std::shared_ptr<NMetrics::IMetricRegistry> exporter) {
+    Impl_->MetricExporter = std::move(exporter);
+    return *this;
+}
+
+TDriverConfig& TDriverConfig::SetTraceExporter(std::shared_ptr<NMetrics::ITraceProvider> exporter) {
+    Impl_->TraceExporter = std::move(exporter);
+    return *this;
+}
+
+std::shared_ptr<NMetrics::IMetricRegistry> TDriverConfig::GetMetricExporter() const {
+    return Impl_->MetricExporter;
+}
+
+std::shared_ptr<NMetrics::ITraceProvider> TDriverConfig::GetTraceExporter() const {
+    return Impl_->TraceExporter;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 std::shared_ptr<TGRpcConnectionsImpl> CreateInternalInterface(const TDriver connection) {
@@ -280,6 +302,8 @@ TDriverConfig TDriver::GetConfig() const {
     config.SetMaxOutboundMessageSize(Impl_->MaxOutboundMessageSize_);
     config.SetMaxMessageSize(Impl_->MaxMessageSize_);
     config.Impl_->Log = Impl_->Log;
+    config.SetMetricExporter(Impl_->GetMetricExporter());
+    config.SetTraceExporter(Impl_->GetTraceExporter());
 
     return config;
 }

@@ -1,10 +1,12 @@
-#include <ydb-cpp-sdk/open_telemetry/otel.h>
+#include <ydb-cpp-sdk/open_telemetry/metrics.h>
+#include <ydb-cpp-sdk/client/resources/ydb_resources.h>
 
+#include <opentelemetry/common/key_value_iterable_view.h>
+#include <opentelemetry/context/runtime_context.h>
 #include <opentelemetry/metrics/meter.h>
 #include <opentelemetry/metrics/sync_instruments.h>
-#include <opentelemetry/common/key_value_iterable_view.h>
-#include <opentelemetry/trace/tracer.h>
-#include <opentelemetry/context/runtime_context.h>
+#include <opentelemetry/sdk/metrics/meter_context.h>
+#include <opentelemetry/sdk/metrics/meter_provider.h>
 
 namespace NYdb::inline V3::NMetrics {
 
@@ -71,61 +73,53 @@ private:
     TLabels Labels_;
 };
 
-trace::SpanKind MapSpanKind(ESpanKind kind) {
-    switch (kind) {
-        case ESpanKind::INTERNAL: return trace::SpanKind::kInternal;
-        case ESpanKind::SERVER:   return trace::SpanKind::kServer;
-        case ESpanKind::CLIENT:   return trace::SpanKind::kClient;
-        case ESpanKind::PRODUCER: return trace::SpanKind::kProducer;
-        case ESpanKind::CONSUMER: return trace::SpanKind::kConsumer;
-    }
-    return trace::SpanKind::kInternal;
-}
-
-class TOtelSpan : public ISpan {
-public:
-    TOtelSpan(nostd::shared_ptr<trace::Span> span)
-        : Span_(std::move(span))
-    {}
-
-    void End() override {
-        Span_->End();
-    }
-
-    void SetAttribute(const std::string& key, const std::string& value) override {
-        Span_->SetAttribute(key, value);
-    }
-
-    void SetAttribute(const std::string& key, int64_t value) override {
-        Span_->SetAttribute(key, value);
-    }
-
-private:
-    nostd::shared_ptr<trace::Span> Span_;
-};
-
-class TOtelTracer : public ITracer {
-public:
-    TOtelTracer(nostd::shared_ptr<trace::Tracer> tracer)
-        : Tracer_(std::move(tracer))
-    {}
-
-    std::shared_ptr<ISpan> StartSpan(const std::string& name, ESpanKind kind) override {
-        trace::StartSpanOptions options;
-        options.kind = MapSpanKind(kind);
-        return std::make_shared<TOtelSpan>(Tracer_->StartSpan(name, options));
-    }
-
-private:
-    nostd::shared_ptr<trace::Tracer> Tracer_;
-};
-
 } // namespace
 
 TOtelMetricRegistry::TOtelMetricRegistry(nostd::shared_ptr<metrics::MeterProvider> meterProvider)
     : MeterProvider_(std::move(meterProvider))
-    , Meter_(MeterProvider_->GetMeter("ydb-cpp-sdk", "1.0.0"))
+    , Meter_(MeterProvider_->GetMeter("ydb-cpp-sdk", GetSdkSemver()))
 {}
+
+void TOtelMetricRegistry::ConfigureHistogramBuckets(const std::string& name, const std::vector<double>& buckets) {
+    if (buckets.empty()) {
+        return;
+    }
+
+    auto* sdkProvider = dynamic_cast<sdk::metrics::MeterProvider*>(MeterProvider_.get());
+    if (!sdkProvider) {
+        return;
+    }
+
+    {
+        std::lock_guard lock(HistogramViewsLock_);
+        if (!HistogramViews_.insert(name).second) {
+            return;
+        }
+    }
+
+    auto selector = std::make_unique<sdk::metrics::InstrumentSelector>(
+        sdk::metrics::InstrumentType::kHistogram,
+        name,
+        ""
+    );
+    auto meterSelector = std::make_unique<sdk::metrics::MeterSelector>(
+        "ydb-cpp-sdk",
+        GetSdkSemver(),
+        {}
+    );
+
+    auto histogramConfig = std::make_shared<sdk::metrics::HistogramAggregationConfig>();
+    histogramConfig->boundaries_ = buckets;
+
+    auto view = std::make_unique<sdk::metrics::View>(
+        {},
+        {},
+        sdk::metrics::AggregationType::kHistogram,
+        histogramConfig
+    );
+
+    sdkProvider->AddView(std::move(selector), std::move(meterSelector), std::move(view));
+}
 
 std::shared_ptr<ICounter> TOtelMetricRegistry::Counter(const std::string& name, const TLabels& labels) {
     auto counter = Meter_->CreateUInt64Counter(name);
@@ -138,16 +132,9 @@ std::shared_ptr<IGauge> TOtelMetricRegistry::Gauge(const std::string& name, cons
 }
 
 std::shared_ptr<IHistogram> TOtelMetricRegistry::Histogram(const std::string& name, const std::vector<double>& buckets, const TLabels& labels) {
+    ConfigureHistogramBuckets(name, buckets);
     auto histogram = Meter_->CreateDoubleHistogram(name);
     return std::make_shared<TOtelHistogram>(std::move(histogram), labels);
-}
-
-TOtelTraceProvider::TOtelTraceProvider(nostd::shared_ptr<trace::TracerProvider> tracerProvider)
-    : TracerProvider_(std::move(tracerProvider))
-{}
-
-std::shared_ptr<ITracer> TOtelTraceProvider::GetTracer(const std::string& name) {
-    return std::make_shared<TOtelTracer>(TracerProvider_->GetTracer(name));
 }
 
 } // namespace NYdb::NMetrics

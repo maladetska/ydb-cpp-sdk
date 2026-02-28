@@ -13,9 +13,12 @@ find_package(base64 REQUIRED)
 find_package(Brotli 1.1.0 REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(double-conversion REQUIRED)
-find_package(opentelemetry-cpp QUIET)
-if (opentelemetry-cpp_FOUND)
-  set(YDB_SDK_HAS_OPEN_TELEMETRY ON)
+
+if (YDB_SDK_ENABLE_OTEL_METRICS OR YDB_SDK_ENABLE_OTEL_TRACE)
+  find_package(opentelemetry-cpp QUIET)
+  if (NOT opentelemetry-cpp_FOUND)
+    message(FATAL_ERROR "Dependency 'opentelemetry-cpp' was not found.")
+  endif()
 endif()
 
 # RapidJSON

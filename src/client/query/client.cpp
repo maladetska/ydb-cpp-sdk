@@ -70,10 +70,8 @@ public:
         SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query"));
         SessionPool_.SetStatCollector(DbDriverState_->StatCollector.GetSessionPoolStatCollector("Query"));
 
-        if (auto metricsApi = Connections_->GetExtensionApi<NMetrics::IMetricsApi>()) {
-            if (auto traceProvider = metricsApi->GetTraceProvider()) {
-                Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
-            }
+        if (auto traceProvider = Connections_->GetTraceExporter()) {
+            Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
         }
     }
 
@@ -471,7 +469,9 @@ public:
 
             void ReplyError(TStatus status) override {
                 TSession session;
-                if (Span) Span->End(status.GetStatus());
+                if (Span) {
+                    Span->End(status.GetStatus());
+                }
                 ScheduleReply(TCreateSessionResult(std::move(status), std::move(session)));
             }
 
@@ -484,7 +484,9 @@ public:
                     )
                 );
 
-                if (Span) Span->End(EStatus::SUCCESS);
+                if (Span) {
+                    Span->End(EStatus::SUCCESS);
+                }
                 ScheduleReply(std::move(val));
             }
 
@@ -493,7 +495,9 @@ public:
                     [promise{std::move(Promise)}, span = Span](TAsyncCreateSessionResult future) mutable
                 {
                     auto val = future.ExtractValue();
-                    if (span) span->End(val.GetStatus());
+                    if (span) {
+                        span->End(val.GetStatus());
+                    }
                     promise.SetValue(std::move(val));
                 });
             }

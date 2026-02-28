@@ -21,34 +21,64 @@ void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
     }
 }
 
+void SafeLogSpanError(const char* message) noexcept {
+    try {
+        try {
+            Cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << Endl;
+            return;
+        } catch (...) {
+        }
+        Cerr << "TQuerySpan: " << message << ": (unknown)" << Endl;
+    } catch (...) {
+    }
+}
+
 } // namespace
 
 TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::string& operationName, const std::string& endpoint) {
-    if (!tracer) return;
+    if (!tracer) {
+        return;
+    }
 
     std::string host;
     int port;
     ParseEndpoint(endpoint, host, port);
 
-    Span_ = tracer->StartSpan("ydb." + operationName, NMetrics::ESpanKind::CLIENT);
-    Span_->SetAttribute("db.system.name", "ydb");
-    Span_->SetAttribute("server.address", host);
-    Span_->SetAttribute("server.port", static_cast<int64_t>(port));
-}
-
-TQuerySpan::~TQuerySpan() {
-    if (Span_) {
-        Span_->End();
+    try {
+        Span_ = tracer->StartSpan("ydb." + operationName, NMetrics::ESpanKind::CLIENT);
+        if (!Span_) {
+            return;
+        }
+        Span_->SetAttribute("db.system.name", "ydb");
+        Span_->SetAttribute("server.address", host);
+        Span_->SetAttribute("server.port", static_cast<int64_t>(port));
+    } catch (...) {
+        SafeLogSpanError("failed to initialize span");
+        Span_.reset();
     }
 }
 
-void TQuerySpan::End(EStatus status) {
+TQuerySpan::~TQuerySpan() noexcept {
     if (Span_) {
-        Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
-        if (status != EStatus::SUCCESS) {
-            Span_->SetAttribute("error.type", ToString(status));
+        try {
+            Span_->End();
+        } catch (...) {
+            SafeLogSpanError("failed to end span");
         }
-        Span_->End();
+    }
+}
+
+void TQuerySpan::End(EStatus status) noexcept {
+    if (Span_) {
+        try {
+            Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
+            if (status != EStatus::SUCCESS) {
+                Span_->SetAttribute("error.type", ToString(status));
+            }
+            Span_->End();
+        } catch (...) {
+            SafeLogSpanError("failed to finalize span");
+        }
         Span_.reset();
     }
 }

@@ -1,11 +1,6 @@
 #pragma once
 
-#include <ydb-cpp-sdk/client/extension_common/extension.h>
-
 #include <map>
-#include <memory>
-#include <string>
-#include <vector>
 
 namespace NYdb::inline V3::NMetrics {
 
@@ -65,17 +60,6 @@ class ITraceProvider {
 public:
     virtual ~ITraceProvider() = default;
     virtual std::shared_ptr<ITracer> GetTracer(const std::string& name) = 0;
-};
-
-class IMetricsApi : public IExtensionApi {
-public:
-    static IMetricsApi* Create(TDriver driver);
-public:
-    virtual ~IMetricsApi() = default;
-    virtual void SetMetricRegistry(std::shared_ptr<IMetricRegistry> registry) = 0;
-    virtual void SetTraceProvider(std::shared_ptr<ITraceProvider> provider) = 0;
-    virtual std::shared_ptr<IMetricRegistry> GetMetricRegistry() const = 0;
-    virtual std::shared_ptr<ITraceProvider> GetTraceProvider() const = 0;
 };
 
 } // namespace NYdb::NMetrics

@@ -12,9 +12,9 @@ namespace NYdb::inline V3::NQuery {
 class TQuerySpan {
 public:
     TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::string& operationName, const std::string& endpoint);
-    ~TQuerySpan();
+    ~TQuerySpan() noexcept;
 
-    void End(EStatus status);
+    void End(EStatus status) noexcept;
 
 private:
     std::shared_ptr<NMetrics::ISpan> Span_;

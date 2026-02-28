@@ -6,6 +6,7 @@
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/types/credentials/credentials.h>
 #include <ydb-cpp-sdk/client/types/fatal_error_handlers/handlers.h>
+#include <ydb-cpp-sdk/client/metrics/metrics.h>
 #include <ydb-cpp-sdk/client/types/request_settings.h>
 #include <ydb-cpp-sdk/client/types/status/status.h>
 #include <ydb-cpp-sdk/client/types/executor/executor.h>
@@ -152,6 +153,18 @@ public:
     //! Set executor for async responses.
     //! If not set, default executor will be used.
     TDriverConfig& SetExecutor(std::shared_ptr<IExecutor> executor);
+
+    //! Set external metrics exporter implementation.
+    TDriverConfig& SetMetricExporter(std::shared_ptr<NMetrics::IMetricRegistry> exporter);
+
+    //! Set external tracing exporter implementation.
+    TDriverConfig& SetTraceExporter(std::shared_ptr<NMetrics::ITraceProvider> exporter);
+
+    //! Get configured metrics exporter implementation.
+    std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const;
+
+    //! Get configured tracing exporter implementation.
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const;
 
 private:
     class TImpl;

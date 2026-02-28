@@ -18,6 +18,11 @@
 
 namespace NYdb::inline V3 {
 
+namespace NMetrics {
+    class IMetricRegistry;
+    class ITraceProvider;
+} // namespace NMetrics
+
 constexpr TDeadline::Duration GRPC_KEEP_ALIVE_TIMEOUT_FOR_DISCOVERY = std::chrono::seconds(10);
 constexpr TDeadline::Duration INITIAL_DEFERRED_CALL_DELAY = std::chrono::milliseconds(10); // The delay before first deferred service call
 constexpr TDeadline::Duration GET_ENDPOINTS_TIMEOUT = std::chrono::seconds(10); // Time wait for ListEndpoints request, after this time we pass error to client
@@ -581,6 +586,8 @@ public:
     ::NMonitoring::TMetricRegistry* GetMetricRegistry() override;
     void RegisterExtension(IExtension* extension);
     void RegisterExtensionApi(IExtensionApi* api);
+    std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const;
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const;
 
     template<typename T>
     T* GetExtensionApi() {
@@ -726,6 +733,8 @@ private:
 
     std::vector<std::unique_ptr<IExtension>> Extensions_;
     std::vector<std::unique_ptr<IExtensionApi>> ExtensionApis_;
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricExporter_;
+    std::shared_ptr<NMetrics::ITraceProvider> TraceExporter_;
 
     IDiscoveryMutatorApi::TMutatorCb DiscoveryMutatorCb;
 
