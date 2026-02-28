@@ -71,7 +71,11 @@ public:
         SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query"));
         SessionPool_.SetStatCollector(DbDriverState_->StatCollector.GetSessionPoolStatCollector("Query"));
 
+<<<<<<< HEAD
         if (auto traceProvider = Connections_->GetTraceProvider()) {
+=======
+        if (auto traceProvider = Connections_->GetTraceExporter()) {
+>>>>>>> 1b2bf4fa5 (fixes)
             Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
         }
         MetricRegistry_ = Connections_->GetExternalMetricRegistry();
@@ -490,9 +494,12 @@ public:
                 if (Span) {
                     Span->End(status.GetStatus());
                 }
+<<<<<<< HEAD
                 if (Metrics) {
                     Metrics->End(status.GetStatus());
                 }
+=======
+>>>>>>> 1b2bf4fa5 (fixes)
                 ScheduleReply(TCreateSessionResult(std::move(status), std::move(session)));
             }
 
@@ -508,9 +515,12 @@ public:
                 if (Span) {
                     Span->End(EStatus::SUCCESS);
                 }
+<<<<<<< HEAD
                 if (Metrics) {
                     Metrics->End(EStatus::SUCCESS);
                 }
+=======
+>>>>>>> 1b2bf4fa5 (fixes)
                 ScheduleReply(std::move(val));
             }
 
@@ -520,12 +530,17 @@ public:
                 {
                     auto val = future.ExtractValue();
                     if (span) {
+<<<<<<< HEAD
                         span->SetPeerEndpoint(val.GetEndpoint());
                         span->End(val.GetStatus());
                     }
                     if (metrics) {
                         metrics->End(val.GetStatus());
                     }
+=======
+                        span->End(val.GetStatus());
+                    }
+>>>>>>> 1b2bf4fa5 (fixes)
                     promise.SetValue(std::move(val));
                 });
             }

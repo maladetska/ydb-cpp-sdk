@@ -15,10 +15,13 @@ public:
     TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::string& operationName, const std::string& endpoint);
     ~TQuerySpan() noexcept;
 
+<<<<<<< HEAD
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
     std::unique_ptr<NMetrics::IScope> Activate() noexcept;
 
+=======
+>>>>>>> 1b2bf4fa5 (fixes)
     void End(EStatus status) noexcept;
 
 private:

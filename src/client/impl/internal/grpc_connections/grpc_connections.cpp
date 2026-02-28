@@ -169,8 +169,13 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
 #ifndef YDB_GRPC_BYPASS_CHANNEL_POOL
     , ChannelPool_(TcpKeepAliveSettings_, params->GetSocketIdleTimeout(), TcpNoDelay_)
 #endif
+<<<<<<< HEAD
     , MetricRegistry_(params->GetExternalMetricRegistry())
     , TraceProvider_(params->GetTraceProvider())
+=======
+    , MetricExporter_(params->GetMetricExporter())
+    , TraceExporter_(params->GetTraceExporter())
+>>>>>>> 1b2bf4fa5 (fixes)
     , NetworkThreadsNum_(params->GetNetworkThreadsNum())
     , UsePerChannelTcpConnection_(params->GetUsePerChannelTcpConnection())
     , GRpcClientLow_(NetworkThreadsNum_)
@@ -438,12 +443,21 @@ void TGRpcConnectionsImpl::RegisterExtensionApi(IExtensionApi* api) {
     ExtensionApis_.emplace_back(api);
 }
 
+<<<<<<< HEAD
 std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
     return MetricRegistry_;
 }
 
 std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
     return TraceProvider_;
+=======
+std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetMetricExporter() const {
+    return MetricExporter_;
+}
+
+std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceExporter() const {
+    return TraceExporter_;
+>>>>>>> 1b2bf4fa5 (fixes)
 }
 
 void TGRpcConnectionsImpl::SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb) {
