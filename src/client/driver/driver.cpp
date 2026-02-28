@@ -55,6 +55,7 @@ public:
     std::shared_ptr<IExecutor> GetExecutor() const override { return Executor; }
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const override { return MetricRegistry; }
     std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const override { return TraceProvider; }
 =======
@@ -65,6 +66,10 @@ public:
     std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const override { return MetricRegistry; }
     std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const override { return TraceProvider; }
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const override { return MetricExporter; }
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const override { return TraceExporter; }
+>>>>>>> a979e6bda (fixes)
 
     std::string Endpoint;
     size_t NetworkThreadsNum = 2;
@@ -98,6 +103,7 @@ public:
     std::shared_ptr<IExecutor> Executor;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry;
     std::shared_ptr<NMetrics::ITraceProvider> TraceProvider;
 =======
@@ -108,6 +114,10 @@ public:
     std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry;
     std::shared_ptr<NMetrics::ITraceProvider> TraceProvider;
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricExporter;
+    std::shared_ptr<NMetrics::ITraceProvider> TraceExporter;
+>>>>>>> a979e6bda (fixes)
 };
 
 TDriverConfig::TDriverConfig(const std::string& connectionString)
@@ -269,6 +279,7 @@ TDriverConfig& TDriverConfig::SetExecutor(std::shared_ptr<IExecutor> executor) {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 TDriverConfig& TDriverConfig::SetMetricRegistry(std::shared_ptr<NMetrics::IMetricRegistry> registry) {
     Impl_->MetricRegistry = std::move(registry);
     return *this;
@@ -295,6 +306,18 @@ TDriverConfig& TDriverConfig::SetTraceProvider(std::shared_ptr<NMetrics::ITraceP
 }
 
 <<<<<<< HEAD
+=======
+TDriverConfig& TDriverConfig::SetMetricExporter(std::shared_ptr<NMetrics::IMetricRegistry> exporter) {
+    Impl_->MetricExporter = std::move(exporter);
+    return *this;
+}
+
+TDriverConfig& TDriverConfig::SetTraceExporter(std::shared_ptr<NMetrics::ITraceProvider> exporter) {
+    Impl_->TraceExporter = std::move(exporter);
+    return *this;
+}
+
+>>>>>>> a979e6bda (fixes)
 std::shared_ptr<NMetrics::IMetricRegistry> TDriverConfig::GetMetricExporter() const {
     return Impl_->MetricExporter;
 }
@@ -303,9 +326,12 @@ std::shared_ptr<NMetrics::ITraceProvider> TDriverConfig::GetTraceExporter() cons
     return Impl_->TraceExporter;
 }
 
+<<<<<<< HEAD
 >>>>>>> 1b2bf4fa5 (fixes)
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
 ////////////////////////////////////////////////////////////////////////////////
 
 std::shared_ptr<TGRpcConnectionsImpl> CreateInternalInterface(const TDriver connection) {
@@ -361,6 +387,7 @@ TDriverConfig TDriver::GetConfig() const {
     config.Impl_->Log = Impl_->Log;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     config.SetMetricRegistry(Impl_->GetExternalMetricRegistry());
     config.SetTraceProvider(Impl_->GetTraceProvider());
 =======
@@ -371,6 +398,10 @@ TDriverConfig TDriver::GetConfig() const {
     config.SetMetricRegistry(Impl_->GetExternalMetricRegistry());
     config.SetTraceProvider(Impl_->GetTraceProvider());
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    config.SetMetricExporter(Impl_->GetMetricExporter());
+    config.SetTraceExporter(Impl_->GetTraceExporter());
+>>>>>>> a979e6bda (fixes)
 
     return config;
 }

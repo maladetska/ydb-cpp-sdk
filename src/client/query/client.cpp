@@ -73,6 +73,7 @@ public:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         if (auto traceProvider = Connections_->GetTraceProvider()) {
 =======
         if (auto traceProvider = Connections_->GetTraceExporter()) {
@@ -80,6 +81,9 @@ public:
 =======
         if (auto traceProvider = Connections_->GetTraceProvider()) {
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+        if (auto traceProvider = Connections_->GetTraceExporter()) {
+>>>>>>> a979e6bda (fixes)
             Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
         }
         MetricRegistry_ = Connections_->GetExternalMetricRegistry();
@@ -504,6 +508,7 @@ public:
                 }
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if (Metrics) {
                     Metrics->End(status.GetStatus());
                 }
@@ -514,6 +519,8 @@ public:
                     Metrics->End(status.GetStatus());
                 }
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
                 ScheduleReply(TCreateSessionResult(std::move(status), std::move(session)));
             }
 
@@ -531,6 +538,7 @@ public:
                 }
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if (Metrics) {
                     Metrics->End(EStatus::SUCCESS);
                 }
@@ -541,6 +549,8 @@ public:
                     Metrics->End(EStatus::SUCCESS);
                 }
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
                 ScheduleReply(std::move(val));
             }
 
@@ -550,6 +560,7 @@ public:
                 {
                     auto val = future.ExtractValue();
                     if (span) {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -567,6 +578,10 @@ public:
 >>>>>>> 1b2bf4fa5 (fixes)
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+                        span->End(val.GetStatus());
+                    }
+>>>>>>> a979e6bda (fixes)
                     promise.SetValue(std::move(val));
                 });
             }

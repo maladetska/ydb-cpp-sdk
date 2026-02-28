@@ -8,6 +8,7 @@
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/types/credentials/credentials.h>
 #include <ydb-cpp-sdk/client/types/fatal_error_handlers/handlers.h>
+#include <ydb-cpp-sdk/client/metrics/metrics.h>
 #include <ydb-cpp-sdk/client/types/request_settings.h>
 #include <ydb-cpp-sdk/client/types/status/status.h>
 #include <ydb-cpp-sdk/client/types/executor/executor.h>
@@ -169,6 +170,7 @@ public:
     TDriverConfig& SetExecutor(std::shared_ptr<IExecutor> executor);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     //! Set external metrics registry implementation.
     TDriverConfig& SetMetricRegistry(std::shared_ptr<NMetrics::IMetricRegistry> registry);
@@ -177,6 +179,20 @@ public:
     TDriverConfig& SetTraceProvider(std::shared_ptr<NMetrics::ITraceProvider> provider);
 
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    //! Set external metrics exporter implementation.
+    TDriverConfig& SetMetricExporter(std::shared_ptr<NMetrics::IMetricRegistry> exporter);
+
+    //! Set external tracing exporter implementation.
+    TDriverConfig& SetTraceExporter(std::shared_ptr<NMetrics::ITraceProvider> exporter);
+
+    //! Get configured metrics exporter implementation.
+    std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const;
+
+    //! Get configured tracing exporter implementation.
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const;
+
+>>>>>>> a979e6bda (fixes)
 private:
     class TImpl;
     std::shared_ptr<TImpl> Impl_;

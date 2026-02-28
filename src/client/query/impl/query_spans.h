@@ -17,6 +17,7 @@ public:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
     std::unique_ptr<NMetrics::IScope> Activate() noexcept;
@@ -29,6 +30,8 @@ public:
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
 
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
     void End(EStatus status) noexcept;
 
 private:

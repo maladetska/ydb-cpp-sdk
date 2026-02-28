@@ -588,9 +588,12 @@ public:
     void RegisterExtensionApi(IExtensionApi* api);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const;
     std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const;
 =======
+=======
+>>>>>>> a979e6bda (fixes)
     std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const;
     std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const;
 
@@ -747,6 +750,7 @@ private:
     std::vector<std::unique_ptr<IExtensionApi>> ExtensionApis_;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
     std::shared_ptr<NMetrics::ITraceProvider> TraceProvider_;
 =======
@@ -757,6 +761,10 @@ private:
     std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
     std::shared_ptr<NMetrics::ITraceProvider> TraceProvider_;
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricExporter_;
+    std::shared_ptr<NMetrics::ITraceProvider> TraceExporter_;
+>>>>>>> a979e6bda (fixes)
 
     IDiscoveryMutatorApi::TMutatorCb DiscoveryMutatorCb;
 

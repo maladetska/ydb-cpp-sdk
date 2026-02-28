@@ -171,6 +171,7 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
 #endif
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     , MetricRegistry_(params->GetExternalMetricRegistry())
     , TraceProvider_(params->GetTraceProvider())
 =======
@@ -181,6 +182,10 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
     , MetricRegistry_(params->GetExternalMetricRegistry())
     , TraceProvider_(params->GetTraceProvider())
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    , MetricExporter_(params->GetMetricExporter())
+    , TraceExporter_(params->GetTraceExporter())
+>>>>>>> a979e6bda (fixes)
     , NetworkThreadsNum_(params->GetNetworkThreadsNum())
     , UsePerChannelTcpConnection_(params->GetUsePerChannelTcpConnection())
     , GRpcClientLow_(NetworkThreadsNum_)
@@ -450,6 +455,7 @@ void TGRpcConnectionsImpl::RegisterExtensionApi(IExtensionApi* api) {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
     return MetricRegistry_;
 }
@@ -457,12 +463,15 @@ std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetr
 std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
     return TraceProvider_;
 =======
+=======
+>>>>>>> a979e6bda (fixes)
 std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetMetricExporter() const {
     return MetricExporter_;
 }
 
 std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceExporter() const {
     return TraceExporter_;
+<<<<<<< HEAD
 >>>>>>> 1b2bf4fa5 (fixes)
 =======
 std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
@@ -472,6 +481,8 @@ std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetr
 std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
     return TraceProvider_;
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
 }
 
 void TGRpcConnectionsImpl::SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb) {

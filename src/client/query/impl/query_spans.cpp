@@ -68,6 +68,18 @@ void SafeLogSpanError(const char* message) noexcept {
     }
 }
 
+void SafeLogSpanError(const char* message) noexcept {
+    try {
+        try {
+            Cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << Endl;
+            return;
+        } catch (...) {
+        }
+        Cerr << "TQuerySpan: " << message << ": (unknown)" << Endl;
+    } catch (...) {
+    }
+}
+
 } // namespace
 
 TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::string& operationName, const std::string& endpoint) {
@@ -81,6 +93,7 @@ TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::str
 
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
         Span_ = tracer->StartSpan(operationName, NMetrics::ESpanKind::CLIENT);
         if (!Span_) {
             return;
@@ -88,12 +101,17 @@ TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::str
         Span_->SetAttribute("db.system.name", "other_sql");
         Span_->SetAttribute("db.operation.name", operationName);
 =======
+=======
+>>>>>>> a979e6bda (fixes)
         Span_ = tracer->StartSpan("ydb." + operationName, NMetrics::ESpanKind::CLIENT);
         if (!Span_) {
             return;
         }
         Span_->SetAttribute("db.system.name", "ydb");
+<<<<<<< HEAD
 >>>>>>> 1b2bf4fa5 (fixes)
+=======
+>>>>>>> a979e6bda (fixes)
         Span_->SetAttribute("server.address", host);
         Span_->SetAttribute("server.port", static_cast<int64_t>(port));
     } catch (...) {
@@ -112,6 +130,7 @@ TQuerySpan::~TQuerySpan() noexcept {
     }
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -176,11 +195,16 @@ void TQuerySpan::End(EStatus status) noexcept {
 =======
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
 void TQuerySpan::End(EStatus status) noexcept {
     if (Span_) {
         try {
             Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
+<<<<<<< HEAD
 >>>>>>> 1b2bf4fa5 (fixes)
+=======
+>>>>>>> a979e6bda (fixes)
             if (status != EStatus::SUCCESS) {
                 Span_->SetAttribute("error.type", ToString(status));
             }

@@ -1,9 +1,12 @@
 #pragma once
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #include <cstdint>
 =======
 >>>>>>> 1b2bf4fa5 (fixes)
+=======
+>>>>>>> a979e6bda (fixes)
 #include <map>
 
 namespace NYdb::inline V3::NMetrics {
@@ -89,6 +92,9 @@ public:
 >>>>>>> 1b2bf4fa5 (fixes)
 };
 
+<<<<<<< HEAD
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> a979e6bda (fixes)
 } // namespace NYdb::NMetrics
