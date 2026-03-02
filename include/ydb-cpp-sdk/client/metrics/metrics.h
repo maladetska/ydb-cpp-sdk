@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace NYdb::inline V3::NMetrics {
 
