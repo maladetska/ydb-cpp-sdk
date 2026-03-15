@@ -1,6 +1,8 @@
 #include <ydb-cpp-sdk/open_telemetry/trace.h>
 
+#include <opentelemetry/common/attribute_value.h>
 #include <opentelemetry/trace/tracer.h>
+#include <opentelemetry/trace/tracer_provider.h>
 
 namespace NYdb::inline V3::NMetrics {
 
@@ -37,6 +39,19 @@ public:
         Span_->SetAttribute(key, value);
     }
 
+    void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) override {
+        if (attributes.empty()) {
+            Span_->AddEvent(name);
+        } else {
+            std::vector<std::pair<nostd::string_view, common::AttributeValue>> attrs;
+            attrs.reserve(attributes.size());
+            for (const auto& [k, v] : attributes) {
+                attrs.emplace_back(nostd::string_view(k), common::AttributeValue(nostd::string_view(v)));
+            }
+            Span_->AddEvent(name, attrs);
+        }
+    }
+
 private:
     nostd::shared_ptr<trace::Span> Span_;
 };
@@ -57,14 +72,26 @@ private:
     nostd::shared_ptr<trace::Tracer> Tracer_;
 };
 
+class TOtelTraceProvider : public ITraceProvider {
+public:
+    TOtelTraceProvider(nostd::shared_ptr<trace::TracerProvider> tracerProvider)
+        : TracerProvider_(std::move(tracerProvider))
+    {}
+
+    std::shared_ptr<ITracer> GetTracer(const std::string& name) override {
+        return std::make_shared<TOtelTracer>(TracerProvider_->GetTracer(name));
+    }
+
+private:
+    nostd::shared_ptr<trace::TracerProvider> TracerProvider_;
+};
+
 } // namespace
 
-TOtelTraceProvider::TOtelTraceProvider(nostd::shared_ptr<trace::TracerProvider> tracerProvider)
-    : TracerProvider_(std::move(tracerProvider))
-{}
-
-std::shared_ptr<ITracer> TOtelTraceProvider::GetTracer(const std::string& name) {
-    return std::make_shared<TOtelTracer>(TracerProvider_->GetTracer(name));
+std::shared_ptr<ITraceProvider> CreateOtelTraceProvider(
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider> tracerProvider)
+{
+    return std::make_shared<TOtelTraceProvider>(std::move(tracerProvider));
 }
 
 } // namespace NYdb::NMetrics

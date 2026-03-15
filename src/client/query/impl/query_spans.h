@@ -1,9 +1,10 @@
 #pragma once
 
-#include <ydb-cpp-sdk/client/metrics/metrics.h>
+#include <ydb-cpp-sdk/client/trace/trace.h>
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/types/status/status.h>
 
+#include <map>
 #include <memory>
 #include <string>
 
@@ -13,6 +14,10 @@ class TQuerySpan {
 public:
     TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::string& operationName, const std::string& endpoint);
     ~TQuerySpan() noexcept;
+
+    void SetPeerEndpoint(const std::string& endpoint) noexcept;
+    void SetQueryText(const std::string& query) noexcept;
+    void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
 
     void End(EStatus status) noexcept;
 

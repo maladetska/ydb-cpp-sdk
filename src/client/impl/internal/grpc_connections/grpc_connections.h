@@ -586,19 +586,8 @@ public:
     ::NMonitoring::TMetricRegistry* GetMetricRegistry() override;
     void RegisterExtension(IExtension* extension);
     void RegisterExtensionApi(IExtensionApi* api);
-    std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const;
-    std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const;
-
-    template<typename T>
-    T* GetExtensionApi() {
-        std::lock_guard lock(ExtensionsLock_);
-        for (const auto& api : ExtensionApis_) {
-            if (auto ptr = dynamic_cast<T*>(api.get())) {
-                return ptr;
-            }
-        }
-        return nullptr;
-    }
+    std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const;
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const;
 
     void SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb);
     const TLog& GetLog() const override;
@@ -733,8 +722,8 @@ private:
 
     std::vector<std::unique_ptr<IExtension>> Extensions_;
     std::vector<std::unique_ptr<IExtensionApi>> ExtensionApis_;
-    std::shared_ptr<NMetrics::IMetricRegistry> MetricExporter_;
-    std::shared_ptr<NMetrics::ITraceProvider> TraceExporter_;
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
+    std::shared_ptr<NMetrics::ITraceProvider> TraceProvider_;
 
     IDiscoveryMutatorApi::TMutatorCb DiscoveryMutatorCb;
 

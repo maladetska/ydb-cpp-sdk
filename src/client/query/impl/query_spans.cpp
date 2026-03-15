@@ -6,29 +6,49 @@ namespace NYdb::inline V3::NQuery {
 
 namespace {
 
+constexpr int DefaultGrpcPort = 2135;
+
 void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
-    auto pos = endpoint.find(':');
+    port = DefaultGrpcPort;
+
+    if (endpoint.empty()) {
+        host = endpoint;
+        return;
+    }
+
+    // IPv6 bracket notation: [addr]:port
+    if (endpoint.front() == '[') {
+        auto bracketEnd = endpoint.find(']');
+        if (bracketEnd != std::string::npos) {
+            host = endpoint.substr(1, bracketEnd - 1);
+            if (bracketEnd + 2 < endpoint.size() && endpoint[bracketEnd + 1] == ':') {
+                try {
+                    port = std::stoi(endpoint.substr(bracketEnd + 2));
+                } catch (...) {}
+            }
+            return;
+        }
+    }
+
+    auto pos = endpoint.rfind(':');
     if (pos != std::string::npos) {
         host = endpoint.substr(0, pos);
         try {
             port = std::stoi(endpoint.substr(pos + 1));
-        } catch (...) {
-            port = 2135;
-        }
+        } catch (...) {}
     } else {
         host = endpoint;
-        port = 2135;
     }
 }
 
 void SafeLogSpanError(const char* message) noexcept {
     try {
         try {
-            Cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << Endl;
+            std::cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << std::endl;
             return;
         } catch (...) {
         }
-        Cerr << "TQuerySpan: " << message << ": (unknown)" << Endl;
+        std::cerr << "TQuerySpan: " << message << ": (unknown)" << std::endl;
     } catch (...) {
     }
 }
@@ -65,6 +85,43 @@ TQuerySpan::~TQuerySpan() noexcept {
         } catch (...) {
             SafeLogSpanError("failed to end span");
         }
+    }
+}
+
+void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
+    if (!Span_ || endpoint.empty()) {
+        return;
+    }
+    try {
+        std::string host;
+        int port;
+        ParseEndpoint(endpoint, host, port);
+        Span_->SetAttribute("network.peer.address", host);
+        Span_->SetAttribute("network.peer.port", static_cast<int64_t>(port));
+    } catch (...) {
+        SafeLogSpanError("failed to set peer endpoint");
+    }
+}
+
+void TQuerySpan::SetQueryText(const std::string& query) noexcept {
+    if (!Span_ || query.empty()) {
+        return;
+    }
+    try {
+        Span_->SetAttribute("db.query.text", query);
+    } catch (...) {
+        SafeLogSpanError("failed to set query text");
+    }
+}
+
+void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
+    if (!Span_) {
+        return;
+    }
+    try {
+        Span_->AddEvent(name, attributes);
+    } catch (...) {
+        SafeLogSpanError("failed to add event");
     }
 }
 

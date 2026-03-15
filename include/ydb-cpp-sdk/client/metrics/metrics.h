@@ -38,32 +38,4 @@ public:
     virtual std::shared_ptr<IHistogram> Histogram(const std::string& name, const std::vector<double>& buckets, const TLabels& labels = {}) = 0;
 };
 
-enum class ESpanKind {
-    INTERNAL,
-    SERVER,
-    CLIENT,
-    PRODUCER,
-    CONSUMER
-};
-
-class ISpan {
-public:
-    virtual ~ISpan() = default;
-    virtual void End() = 0;
-    virtual void SetAttribute(const std::string& key, const std::string& value) = 0;
-    virtual void SetAttribute(const std::string& key, int64_t value) = 0;
-};
-
-class ITracer {
-public:
-    virtual ~ITracer() = default;
-    virtual std::shared_ptr<ISpan> StartSpan(const std::string& name, ESpanKind kind = ESpanKind::INTERNAL) = 0;
-};
-
-class ITraceProvider {
-public:
-    virtual ~ITraceProvider() = default;
-    virtual std::shared_ptr<ITracer> GetTracer(const std::string& name) = 0;
-};
-
 } // namespace NYdb::NMetrics

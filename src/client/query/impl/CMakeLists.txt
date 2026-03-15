@@ -12,6 +12,7 @@ target_link_libraries(client-ydb_query-impl PUBLIC
 target_sources(client-ydb_query-impl PRIVATE
   exec_query.cpp
   client_session.cpp
+  query_metrics.cpp
   query_spans.cpp
 )
 
