@@ -101,6 +101,7 @@ add_ydb_test(NAME client-ydb_value_ut GTEST
     unit
 )
 
+<<<<<<< HEAD
 add_ydb_test(NAME client-ydb_metrics_ut GTEST
   INCLUDE_DIRS
     ${YDB_SDK_SOURCE_DIR}
@@ -111,10 +112,21 @@ add_ydb_test(NAME client-ydb_metrics_ut GTEST
     impl-observability
     client-ydb_query-impl
     client-ydb_table-impl
+=======
+add_ydb_test(NAME client-ydb_query_metrics_ut GTEST
+  INCLUDE_DIRS
+    ${YDB_SDK_SOURCE_DIR}
+  SOURCES
+    query/query_metrics_ut.cpp
+  LINK_LIBRARIES
+    yutil
+    client-ydb_query-impl
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
     client-metrics
   LABELS
     unit
 )
+<<<<<<< HEAD
 
 add_ydb_test(NAME client-ydb_query_spans_ut GTEST
   INCLUDE_DIRS
@@ -128,3 +140,5 @@ add_ydb_test(NAME client-ydb_query_spans_ut GTEST
   LABELS
     unit
 )
+=======
+>>>>>>> 1ca4253b5 (fixes and add metric tests)

@@ -8,7 +8,6 @@
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/types/credentials/credentials.h>
 #include <ydb-cpp-sdk/client/types/fatal_error_handlers/handlers.h>
-#include <ydb-cpp-sdk/client/metrics/metrics.h>
 #include <ydb-cpp-sdk/client/types/request_settings.h>
 #include <ydb-cpp-sdk/client/types/status/status.h>
 #include <ydb-cpp-sdk/client/types/executor/executor.h>
@@ -169,6 +168,15 @@ public:
     //! If not set, default executor will be used.
     TDriverConfig& SetExecutor(std::shared_ptr<IExecutor> executor);
 
+<<<<<<< HEAD
+=======
+    //! Set external metrics registry implementation.
+    TDriverConfig& SetMetricRegistry(std::shared_ptr<NMetrics::IMetricRegistry> registry);
+
+    //! Set external trace provider implementation.
+    TDriverConfig& SetTraceProvider(std::shared_ptr<NMetrics::ITraceProvider> provider);
+
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 private:
     class TImpl;
     std::shared_ptr<TImpl> Impl_;

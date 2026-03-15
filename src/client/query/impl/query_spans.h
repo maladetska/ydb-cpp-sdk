@@ -16,12 +16,19 @@ public:
     ~TQuerySpan() noexcept;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
     std::unique_ptr<NMetrics::IScope> Activate() noexcept;
 
 =======
 >>>>>>> 1b2bf4fa5 (fixes)
+=======
+    void SetPeerEndpoint(const std::string& endpoint) noexcept;
+    void SetQueryText(const std::string& query) noexcept;
+    void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
+
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
     void End(EStatus status) noexcept;
 
 private:

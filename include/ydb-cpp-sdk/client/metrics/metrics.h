@@ -59,6 +59,7 @@ public:
     virtual std::shared_ptr<IHistogram> Histogram(const std::string& name, const std::vector<double>& buckets, const TLabels& labels = {}) = 0;
 };
 
+<<<<<<< HEAD
 enum class ESpanKind {
     INTERNAL,
     SERVER,
@@ -88,4 +89,6 @@ public:
 >>>>>>> 1b2bf4fa5 (fixes)
 };
 
+=======
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 } // namespace NYdb::NMetrics

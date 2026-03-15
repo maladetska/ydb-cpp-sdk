@@ -587,6 +587,7 @@ public:
     void RegisterExtension(IExtension* extension);
     void RegisterExtensionApi(IExtensionApi* api);
 <<<<<<< HEAD
+<<<<<<< HEAD
     std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const;
     std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const;
 =======
@@ -604,6 +605,10 @@ public:
         return nullptr;
     }
 >>>>>>> 1b2bf4fa5 (fixes)
+=======
+    std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const;
+    std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const;
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 
     void SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb);
     const TLog& GetLog() const override;
@@ -741,12 +746,17 @@ private:
     std::vector<std::unique_ptr<IExtension>> Extensions_;
     std::vector<std::unique_ptr<IExtensionApi>> ExtensionApis_;
 <<<<<<< HEAD
+<<<<<<< HEAD
     std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
     std::shared_ptr<NMetrics::ITraceProvider> TraceProvider_;
 =======
     std::shared_ptr<NMetrics::IMetricRegistry> MetricExporter_;
     std::shared_ptr<NMetrics::ITraceProvider> TraceExporter_;
 >>>>>>> 1b2bf4fa5 (fixes)
+=======
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
+    std::shared_ptr<NMetrics::ITraceProvider> TraceProvider_;
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 
     IDiscoveryMutatorApi::TMutatorCb DiscoveryMutatorCb;
 

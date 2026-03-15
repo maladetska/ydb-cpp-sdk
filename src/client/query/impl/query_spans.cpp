@@ -38,6 +38,7 @@ void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
         } catch (...) {}
     } else {
         host = endpoint;
+<<<<<<< HEAD
     }
 }
 
@@ -50,17 +51,19 @@ void SafeLogSpanError(const char* message) noexcept {
         }
         std::cerr << "TQuerySpan: " << message << ": (unknown)" << std::endl;
     } catch (...) {
+=======
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
     }
 }
 
 void SafeLogSpanError(const char* message) noexcept {
     try {
         try {
-            Cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << Endl;
+            std::cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << std::endl;
             return;
         } catch (...) {
         }
-        Cerr << "TQuerySpan: " << message << ": (unknown)" << Endl;
+        std::cerr << "TQuerySpan: " << message << ": (unknown)" << std::endl;
     } catch (...) {
     }
 }
@@ -110,6 +113,9 @@ TQuerySpan::~TQuerySpan() noexcept {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     if (!Span_ || endpoint.empty()) {
         return;
@@ -125,6 +131,20 @@ void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     }
 }
 
+<<<<<<< HEAD
+=======
+void TQuerySpan::SetQueryText(const std::string& query) noexcept {
+    if (!Span_ || query.empty()) {
+        return;
+    }
+    try {
+        Span_->SetAttribute("db.query.text", query);
+    } catch (...) {
+        SafeLogSpanError("failed to set query text");
+    }
+}
+
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
     if (!Span_) {
         return;
@@ -136,6 +156,7 @@ void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, s
     }
 }
 
+<<<<<<< HEAD
 std::unique_ptr<NMetrics::IScope> TQuerySpan::Activate() noexcept {
     if (!Span_) {
         return nullptr;
@@ -153,6 +174,8 @@ void TQuerySpan::End(EStatus status) noexcept {
         try {
             Span_->SetAttribute("db.response.status_code", ToString(status));
 =======
+=======
+>>>>>>> 1ca4253b5 (fixes and add metric tests)
 void TQuerySpan::End(EStatus status) noexcept {
     if (Span_) {
         try {
