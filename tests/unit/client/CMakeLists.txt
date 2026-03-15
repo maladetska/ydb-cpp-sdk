@@ -102,6 +102,7 @@ add_ydb_test(NAME client-ydb_value_ut GTEST
 )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 add_ydb_test(NAME client-ydb_metrics_ut GTEST
   INCLUDE_DIRS
     ${YDB_SDK_SOURCE_DIR}
@@ -113,6 +114,8 @@ add_ydb_test(NAME client-ydb_metrics_ut GTEST
     client-ydb_query-impl
     client-ydb_table-impl
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 add_ydb_test(NAME client-ydb_query_metrics_ut GTEST
   INCLUDE_DIRS
     ${YDB_SDK_SOURCE_DIR}
@@ -121,11 +124,15 @@ add_ydb_test(NAME client-ydb_query_metrics_ut GTEST
   LINK_LIBRARIES
     yutil
     client-ydb_query-impl
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     client-metrics
   LABELS
     unit
 )
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 add_ydb_test(NAME client-ydb_query_spans_ut GTEST
@@ -142,3 +149,5 @@ add_ydb_test(NAME client-ydb_query_spans_ut GTEST
 )
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)

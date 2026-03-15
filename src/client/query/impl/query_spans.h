@@ -18,6 +18,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
     std::unique_ptr<NMetrics::IScope> Activate() noexcept;
@@ -25,13 +26,18 @@ public:
 =======
 >>>>>>> 1b2bf4fa5 (fixes)
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void SetQueryText(const std::string& query) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
 
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
 =======
 >>>>>>> a979e6bda (fixes)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     void End(EStatus status) noexcept;
 
 private:

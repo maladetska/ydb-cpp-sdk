@@ -10,14 +10,18 @@
 #include <opentelemetry/sdk/metrics/meter_provider.h>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #include <unordered_set>
 
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 namespace NYdb::inline V3::NMetrics {
 
 namespace {
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 namespace otel_metrics = opentelemetry::metrics;
 namespace otel_nostd = opentelemetry::nostd;
@@ -28,25 +32,35 @@ namespace otel_sdk_metrics = opentelemetry::sdk::metrics;
 otel_common::KeyValueIterableView<TLabels> MakeAttributes(const TLabels& labels) {
     return otel_common::KeyValueIterableView<TLabels>(labels);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 using namespace opentelemetry;
 
 common::KeyValueIterableView<TLabels> MakeAttributes(const TLabels& labels) {
     return common::KeyValueIterableView<TLabels>(labels);
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 }
 
 class TOtelCounter : public ICounter {
 public:
 <<<<<<< HEAD
+<<<<<<< HEAD
     TOtelCounter(otel_nostd::shared_ptr<otel_metrics::Counter<uint64_t>> counter, const TLabels& labels)
 =======
     TOtelCounter(nostd::shared_ptr<metrics::Counter<uint64_t>> counter, const TLabels& labels)
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    TOtelCounter(nostd::shared_ptr<metrics::Counter<uint64_t>> counter, const TLabels& labels)
+>>>>>>> dcae6d69e (fixes and add metric tests)
         : Counter_(std::move(counter))
         , Labels_(labels)
     {}
 
     void Inc() override {
+<<<<<<< HEAD
 <<<<<<< HEAD
         Counter_->Add(1, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
     }
@@ -54,50 +68,71 @@ public:
 private:
     otel_nostd::shared_ptr<otel_metrics::Counter<uint64_t>> Counter_;
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
         Counter_->Add(1, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
     }
 
 private:
     nostd::shared_ptr<metrics::Counter<uint64_t>> Counter_;
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     TLabels Labels_;
 };
 
 class TOtelUpDownCounterGauge : public IGauge {
 public:
 <<<<<<< HEAD
+<<<<<<< HEAD
     TOtelUpDownCounterGauge(otel_nostd::shared_ptr<otel_metrics::UpDownCounter<double>> counter, const TLabels& labels)
 =======
     TOtelUpDownCounterGauge(nostd::shared_ptr<metrics::UpDownCounter<double>> counter, const TLabels& labels)
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    TOtelUpDownCounterGauge(nostd::shared_ptr<metrics::UpDownCounter<double>> counter, const TLabels& labels)
+>>>>>>> dcae6d69e (fixes and add metric tests)
         : Counter_(std::move(counter))
         , Labels_(labels)
     {}
 
     void Add(double delta) override {
 <<<<<<< HEAD
+<<<<<<< HEAD
         Counter_->Add(delta, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
 =======
         Counter_->Add(delta, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+        Counter_->Add(delta, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
+>>>>>>> dcae6d69e (fixes and add metric tests)
         Value_ += delta;
     }
 
     void Set(double value) override {
 <<<<<<< HEAD
+<<<<<<< HEAD
         Counter_->Add(value - Value_, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
 =======
         Counter_->Add(value - Value_, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+        Counter_->Add(value - Value_, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
+>>>>>>> dcae6d69e (fixes and add metric tests)
         Value_ = value;
     }
 
 private:
 <<<<<<< HEAD
+<<<<<<< HEAD
     otel_nostd::shared_ptr<otel_metrics::UpDownCounter<double>> Counter_;
 =======
     nostd::shared_ptr<metrics::UpDownCounter<double>> Counter_;
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    nostd::shared_ptr<metrics::UpDownCounter<double>> Counter_;
+>>>>>>> dcae6d69e (fixes and add metric tests)
     TLabels Labels_;
     double Value_ = 0;
 };
@@ -105,15 +140,20 @@ private:
 class TOtelHistogram : public IHistogram {
 public:
 <<<<<<< HEAD
+<<<<<<< HEAD
     TOtelHistogram(otel_nostd::shared_ptr<otel_metrics::Histogram<double>> histogram, const TLabels& labels)
 =======
     TOtelHistogram(nostd::shared_ptr<metrics::Histogram<double>> histogram, const TLabels& labels)
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    TOtelHistogram(nostd::shared_ptr<metrics::Histogram<double>> histogram, const TLabels& labels)
+>>>>>>> dcae6d69e (fixes and add metric tests)
         : Histogram_(std::move(histogram))
         , Labels_(labels)
     {}
 
     void Record(double value) override {
+<<<<<<< HEAD
 <<<<<<< HEAD
         Histogram_->Record(value, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
     }
@@ -121,26 +161,36 @@ public:
 private:
     otel_nostd::shared_ptr<otel_metrics::Histogram<double>> Histogram_;
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
         Histogram_->Record(value, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
     }
 
 private:
     nostd::shared_ptr<metrics::Histogram<double>> Histogram_;
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     TLabels Labels_;
 };
 
 class TOtelMetricRegistry : public IMetricRegistry {
 public:
 <<<<<<< HEAD
+<<<<<<< HEAD
     TOtelMetricRegistry(otel_nostd::shared_ptr<otel_metrics::MeterProvider> meterProvider)
 =======
     TOtelMetricRegistry(nostd::shared_ptr<metrics::MeterProvider> meterProvider)
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    TOtelMetricRegistry(nostd::shared_ptr<metrics::MeterProvider> meterProvider)
+>>>>>>> dcae6d69e (fixes and add metric tests)
         : MeterProvider_(std::move(meterProvider))
         , Meter_(MeterProvider_->GetMeter("ydb-cpp-sdk", GetSdkSemver()))
     {}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     std::shared_ptr<ICounter> Counter(const std::string& name
         , const TLabels& labels
@@ -169,6 +219,8 @@ public:
         ConfigureHistogramBuckets(name, unit, buckets);
         auto histogram = Meter_->CreateDoubleHistogram(name, description, unit);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     std::shared_ptr<ICounter> Counter(const std::string& name, const TLabels& labels) override {
         auto counter = Meter_->CreateUInt64Counter(name);
         return std::make_shared<TOtelCounter>(std::move(counter), labels);
@@ -182,25 +234,36 @@ public:
     std::shared_ptr<IHistogram> Histogram(const std::string& name, const std::vector<double>& buckets, const TLabels& labels) override {
         ConfigureHistogramBuckets(name, buckets);
         auto histogram = Meter_->CreateDoubleHistogram(name);
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
         return std::make_shared<TOtelHistogram>(std::move(histogram), labels);
     }
 
 private:
 <<<<<<< HEAD
+<<<<<<< HEAD
     void ConfigureHistogramBuckets(const std::string& name, const std::string& unit, const std::vector<double>& buckets) {
 =======
     void ConfigureHistogramBuckets(const std::string& name, const std::vector<double>& buckets) {
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    void ConfigureHistogramBuckets(const std::string& name, const std::vector<double>& buckets) {
+>>>>>>> dcae6d69e (fixes and add metric tests)
         if (buckets.empty()) {
             return;
         }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         auto* sdkProvider = dynamic_cast<otel_sdk_metrics::MeterProvider*>(MeterProvider_.get());
 =======
         auto* sdkProvider = dynamic_cast<sdk::metrics::MeterProvider*>(MeterProvider_.get());
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+        auto* sdkProvider = dynamic_cast<sdk::metrics::MeterProvider*>(MeterProvider_.get());
+>>>>>>> dcae6d69e (fixes and add metric tests)
         if (!sdkProvider) {
             return;
         }
@@ -212,6 +275,7 @@ private:
             }
         }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
         auto selector = std::make_unique<otel_sdk_metrics::InstrumentSelector>(
             otel_sdk_metrics::InstrumentType::kHistogram,
@@ -232,6 +296,8 @@ private:
             std::string(),
             otel_sdk_metrics::AggregationType::kHistogram,
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
         auto selector = std::make_unique<sdk::metrics::InstrumentSelector>(
             sdk::metrics::InstrumentType::kHistogram,
             name,
@@ -250,7 +316,10 @@ private:
             {},
             {},
             sdk::metrics::AggregationType::kHistogram,
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
             histogramConfig
         );
 
@@ -258,12 +327,17 @@ private:
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     otel_nostd::shared_ptr<otel_metrics::MeterProvider> MeterProvider_;
     otel_nostd::shared_ptr<otel_metrics::Meter> Meter_;
 =======
     nostd::shared_ptr<metrics::MeterProvider> MeterProvider_;
     nostd::shared_ptr<metrics::Meter> Meter_;
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+    nostd::shared_ptr<metrics::MeterProvider> MeterProvider_;
+    nostd::shared_ptr<metrics::Meter> Meter_;
+>>>>>>> dcae6d69e (fixes and add metric tests)
     std::mutex HistogramViewsLock_;
     std::unordered_set<std::string> HistogramViews_;
 };

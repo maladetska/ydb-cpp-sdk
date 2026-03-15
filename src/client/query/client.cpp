@@ -74,6 +74,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         if (auto traceProvider = Connections_->GetTraceProvider()) {
 =======
         if (auto traceProvider = Connections_->GetTraceExporter()) {
@@ -84,6 +85,9 @@ public:
 =======
         if (auto traceProvider = Connections_->GetTraceExporter()) {
 >>>>>>> a979e6bda (fixes)
+=======
+        if (auto traceProvider = Connections_->GetTraceProvider()) {
+>>>>>>> dcae6d69e (fixes and add metric tests)
             Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
         }
         MetricRegistry_ = Connections_->GetExternalMetricRegistry();
@@ -117,9 +121,13 @@ public:
 
         auto span = std::make_shared<TQuerySpan>(Tracer_, "ExecuteQuery", DbDriverState_->DiscoveryEndpoint);
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         span->SetQueryText(query);
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+        span->SetQueryText(query);
+>>>>>>> dcae6d69e (fixes and add metric tests)
         auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "ExecuteQuery");
 
         return TExecQueryImpl::ExecuteQuery(
@@ -509,6 +517,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if (Metrics) {
                     Metrics->End(status.GetStatus());
                 }
@@ -521,6 +530,11 @@ public:
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
 =======
 >>>>>>> a979e6bda (fixes)
+=======
+                if (Metrics) {
+                    Metrics->End(status.GetStatus());
+                }
+>>>>>>> dcae6d69e (fixes and add metric tests)
                 ScheduleReply(TCreateSessionResult(std::move(status), std::move(session)));
             }
 
@@ -539,6 +553,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if (Metrics) {
                     Metrics->End(EStatus::SUCCESS);
                 }
@@ -551,6 +566,11 @@ public:
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
 =======
 >>>>>>> a979e6bda (fixes)
+=======
+                if (Metrics) {
+                    Metrics->End(EStatus::SUCCESS);
+                }
+>>>>>>> dcae6d69e (fixes and add metric tests)
                 ScheduleReply(std::move(val));
             }
 
@@ -563,14 +583,18 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
                         span->SetPeerEndpoint(val.GetEndpoint());
                         span->End(val.GetStatus());
                     }
                     if (metrics) {
                         metrics->End(val.GetStatus());
                     }
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
                         span->End(val.GetStatus());
@@ -582,6 +606,8 @@ public:
                         span->End(val.GetStatus());
                     }
 >>>>>>> a979e6bda (fixes)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
                     promise.SetValue(std::move(val));
                 });
             }

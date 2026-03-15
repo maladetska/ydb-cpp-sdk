@@ -2,9 +2,12 @@
 #include <ydb-cpp-sdk/client/query/client.h>
 #include <tests/common/fake_metric_registry.h>
 <<<<<<< HEAD
+<<<<<<< HEAD
 #include <util/string/cast.h>
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 
 #include <library/cpp/testing/gtest/gtest.h>
 
@@ -41,6 +44,7 @@ std::shared_ptr<TFakeCounter> GetCounter(
     const std::string& operation)
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
     return registry->GetCounter(name, {
         {"db.system.name", "other_sql"},
         {"db.operation.name", operation},
@@ -62,6 +66,8 @@ std::shared_ptr<TFakeHistogram> GetDuration(
     }
     return registry->GetHistogram("db.client.operation.duration", labels);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     return registry->GetCounter(name, {{"operation", operation}});
 }
 
@@ -71,7 +77,10 @@ std::shared_ptr<TFakeHistogram> GetHistogram(
     const std::string& operation)
 {
     return registry->GetHistogram(name, {{"operation", operation}});
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 }
 
 } // namespace
@@ -90,6 +99,7 @@ TEST(QueryMetricsIntegration, ExecuteQuerySuccessRecordsMetrics) {
     ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto requests = GetCounter(registry, "db.client.operation.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr) << "ExecuteQuery request counter not created";
     EXPECT_GE(requests->Get(), 1);
@@ -103,6 +113,8 @@ TEST(QueryMetricsIntegration, ExecuteQuerySuccessRecordsMetrics) {
     EXPECT_GE(duration->Count(), 1u);
     for (double v : duration->GetValues()) {
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto requests = GetCounter(registry, "ydb.query.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr) << "ExecuteQuery request counter not created";
     EXPECT_GE(requests->Get(), 1);
@@ -115,7 +127,10 @@ TEST(QueryMetricsIntegration, ExecuteQuerySuccessRecordsMetrics) {
     ASSERT_NE(latency, nullptr) << "ExecuteQuery latency histogram not created";
     EXPECT_GE(latency->Count(), 1u);
     for (double v : latency->GetValues()) {
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
         EXPECT_GE(v, 0.0);
     }
 
@@ -136,6 +151,7 @@ TEST(QueryMetricsIntegration, ExecuteQueryErrorRecordsErrorMetric) {
     EXPECT_NE(result.GetStatus(), EStatus::SUCCESS);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto requests = GetCounter(registry, "db.client.operation.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr);
     EXPECT_GE(requests->Get(), 1);
@@ -148,6 +164,8 @@ TEST(QueryMetricsIntegration, ExecuteQueryErrorRecordsErrorMetric) {
     ASSERT_NE(duration, nullptr);
     EXPECT_GE(duration->Count(), 1u);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto requests = GetCounter(registry, "ydb.query.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr);
     EXPECT_GE(requests->Get(), 1);
@@ -159,7 +177,10 @@ TEST(QueryMetricsIntegration, ExecuteQueryErrorRecordsErrorMetric) {
     auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
     ASSERT_NE(latency, nullptr);
     EXPECT_GE(latency->Count(), 1u);
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 
     driver.Stop(true);
 }
@@ -172,6 +193,7 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     ASSERT_TRUE(session.IsSuccess()) << session.GetIssues().ToString();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto requests = GetCounter(registry, "db.client.operation.requests", "GetSession");
     ASSERT_NE(requests, nullptr) << "CreateSession request counter not created";
     EXPECT_GE(requests->Get(), 1);
@@ -180,6 +202,8 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     ASSERT_NE(duration, nullptr) << "CreateSession duration histogram not created";
     EXPECT_GE(duration->Count(), 1u);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto requests = GetCounter(registry, "ydb.query.requests", "CreateSession");
     ASSERT_NE(requests, nullptr) << "CreateSession request counter not created";
     EXPECT_GE(requests->Get(), 1);
@@ -187,7 +211,10 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     auto latency = GetHistogram(registry, "ydb.query.latency_ms", "CreateSession");
     ASSERT_NE(latency, nullptr) << "CreateSession latency histogram not created";
     EXPECT_GE(latency->Count(), 1u);
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 
     driver.Stop(true);
 }
@@ -215,6 +242,7 @@ TEST(QueryMetricsIntegration, CommitTransactionRecordsMetrics) {
         ASSERT_TRUE(commitResult.IsSuccess()) << commitResult.GetIssues().ToString();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         auto commitRequests = GetCounter(registry, "db.client.operation.requests", "Commit");
         ASSERT_NE(commitRequests, nullptr) << "Commit request counter not created";
         EXPECT_GE(commitRequests->Get(), 1);
@@ -223,6 +251,8 @@ TEST(QueryMetricsIntegration, CommitTransactionRecordsMetrics) {
         ASSERT_NE(commitDuration, nullptr);
         EXPECT_GE(commitDuration->Count(), 1u);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
         auto commitRequests = GetCounter(registry, "ydb.query.requests", "Commit");
         ASSERT_NE(commitRequests, nullptr) << "Commit request counter not created";
         EXPECT_GE(commitRequests->Get(), 1);
@@ -230,7 +260,10 @@ TEST(QueryMetricsIntegration, CommitTransactionRecordsMetrics) {
         auto commitLatency = GetHistogram(registry, "ydb.query.latency_ms", "Commit");
         ASSERT_NE(commitLatency, nullptr);
         EXPECT_GE(commitLatency->Count(), 1u);
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     }
 
     driver.Stop(true);
@@ -252,6 +285,7 @@ TEST(QueryMetricsIntegration, RollbackTransactionRecordsMetrics) {
     ASSERT_TRUE(rollbackResult.IsSuccess()) << rollbackResult.GetIssues().ToString();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto rollbackRequests = GetCounter(registry, "db.client.operation.requests", "Rollback");
     ASSERT_NE(rollbackRequests, nullptr) << "Rollback request counter not created";
     EXPECT_GE(rollbackRequests->Get(), 1);
@@ -264,6 +298,8 @@ TEST(QueryMetricsIntegration, RollbackTransactionRecordsMetrics) {
     ASSERT_NE(rollbackDuration, nullptr);
     EXPECT_GE(rollbackDuration->Count(), 1u);
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto rollbackRequests = GetCounter(registry, "ydb.query.requests", "Rollback");
     ASSERT_NE(rollbackRequests, nullptr) << "Rollback request counter not created";
     EXPECT_GE(rollbackRequests->Get(), 1);
@@ -275,7 +311,10 @@ TEST(QueryMetricsIntegration, RollbackTransactionRecordsMetrics) {
     auto rollbackLatency = GetHistogram(registry, "ydb.query.latency_ms", "Rollback");
     ASSERT_NE(rollbackLatency, nullptr);
     EXPECT_GE(rollbackLatency->Count(), 1u);
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 
     driver.Stop(true);
 }
@@ -298,6 +337,7 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto requests = GetCounter(registry, "db.client.operation.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr);
     EXPECT_EQ(requests->Get(), numQueries);
@@ -310,6 +350,8 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
     ASSERT_NE(duration, nullptr);
     EXPECT_EQ(duration->Count(), static_cast<size_t>(numQueries));
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto requests = GetCounter(registry, "ydb.query.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr);
     EXPECT_EQ(requests->Get(), numQueries);
@@ -321,7 +363,10 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
     auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
     ASSERT_NE(latency, nullptr);
     EXPECT_EQ(latency->Count(), static_cast<size_t>(numQueries));
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 
     driver.Stop(true);
 }
@@ -351,10 +396,14 @@ TEST(QueryMetricsIntegration, NoRegistryDoesNotBreakOperations) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 TEST(QueryMetricsIntegration, DurationValuesAreRealistic) {
 =======
 TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto [driver, registry] = MakeRunArgs();
     TQueryClient client(driver);
 
@@ -369,6 +418,7 @@ TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
     ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto duration = GetDuration(registry, "ExecuteQuery", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr);
     ASSERT_GE(duration->Count(), 1u);
@@ -377,6 +427,8 @@ TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
         EXPECT_GE(v, 0.0) << "Duration must be non-negative";
         EXPECT_LT(v, 30.0) << "Duration > 30s is unrealistic for SELECT 1";
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
     ASSERT_NE(latency, nullptr);
     ASSERT_GE(latency->Count(), 1u);
@@ -384,7 +436,10 @@ TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
     for (double v : latency->GetValues()) {
         EXPECT_GE(v, 0.0) << "Latency must be non-negative";
         EXPECT_LT(v, 30000.0) << "Latency > 30s is unrealistic for SELECT 1";
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     }
 
     driver.Stop(true);

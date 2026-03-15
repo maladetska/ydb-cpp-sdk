@@ -1,6 +1,7 @@
 #pragma once
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #include <src/client/impl/observability/client_metrics.h>
 
 namespace NYdb::inline V3::NQuery {
@@ -11,6 +12,8 @@ public:
         : TClientMetrics(std::move(registry), operationName)
     {}
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 #include <ydb-cpp-sdk/client/metrics/metrics.h>
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 
@@ -34,7 +37,10 @@ private:
     std::shared_ptr<NMetrics::IHistogram> LatencyHistogram_;
     TInstant StartTime_;
     bool Ended_ = false;
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 };
 
 } // namespace NYdb::NQuery

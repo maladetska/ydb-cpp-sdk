@@ -172,6 +172,7 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     , MetricRegistry_(params->GetExternalMetricRegistry())
     , TraceProvider_(params->GetTraceProvider())
 =======
@@ -186,6 +187,10 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
     , MetricExporter_(params->GetMetricExporter())
     , TraceExporter_(params->GetTraceExporter())
 >>>>>>> a979e6bda (fixes)
+=======
+    , MetricRegistry_(params->GetExternalMetricRegistry())
+    , TraceProvider_(params->GetTraceProvider())
+>>>>>>> dcae6d69e (fixes and add metric tests)
     , NetworkThreadsNum_(params->GetNetworkThreadsNum())
     , UsePerChannelTcpConnection_(params->GetUsePerChannelTcpConnection())
     , GRpcClientLow_(NetworkThreadsNum_)
@@ -456,6 +461,7 @@ void TGRpcConnectionsImpl::RegisterExtensionApi(IExtensionApi* api) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
     return MetricRegistry_;
 }
@@ -483,6 +489,14 @@ std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
 =======
 >>>>>>> a979e6bda (fixes)
+=======
+std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
+    return MetricRegistry_;
+}
+
+std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
+    return TraceProvider_;
+>>>>>>> dcae6d69e (fixes and add metric tests)
 }
 
 void TGRpcConnectionsImpl::SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb) {

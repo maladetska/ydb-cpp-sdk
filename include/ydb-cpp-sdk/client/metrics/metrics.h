@@ -63,6 +63,7 @@ public:
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 enum class ESpanKind {
     INTERNAL,
     SERVER,
@@ -97,4 +98,6 @@ public:
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
 =======
 >>>>>>> a979e6bda (fixes)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 } // namespace NYdb::NMetrics

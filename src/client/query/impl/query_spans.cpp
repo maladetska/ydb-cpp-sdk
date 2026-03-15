@@ -39,6 +39,7 @@ void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
     } else {
         host = endpoint;
 <<<<<<< HEAD
+<<<<<<< HEAD
     }
 }
 
@@ -65,17 +66,19 @@ void SafeLogSpanError(const char* message) noexcept {
         }
         std::cerr << "TQuerySpan: " << message << ": (unknown)" << std::endl;
     } catch (...) {
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
     }
 }
 
 void SafeLogSpanError(const char* message) noexcept {
     try {
         try {
-            Cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << Endl;
+            std::cerr << "TQuerySpan: " << message << ": " << CurrentExceptionMessage() << std::endl;
             return;
         } catch (...) {
         }
-        Cerr << "TQuerySpan: " << message << ": (unknown)" << Endl;
+        std::cerr << "TQuerySpan: " << message << ": (unknown)" << std::endl;
     } catch (...) {
     }
 }
@@ -133,8 +136,11 @@ TQuerySpan::~TQuerySpan() noexcept {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     if (!Span_ || endpoint.empty()) {
         return;
@@ -151,7 +157,10 @@ void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 void TQuerySpan::SetQueryText(const std::string& query) noexcept {
     if (!Span_ || query.empty()) {
         return;
@@ -163,7 +172,10 @@ void TQuerySpan::SetQueryText(const std::string& query) noexcept {
     }
 }
 
+<<<<<<< HEAD
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
     if (!Span_) {
         return;
@@ -175,6 +187,7 @@ void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, s
     }
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 std::unique_ptr<NMetrics::IScope> TQuerySpan::Activate() noexcept {
     if (!Span_) {
@@ -197,6 +210,8 @@ void TQuerySpan::End(EStatus status) noexcept {
 >>>>>>> 1ca4253b5 (fixes and add metric tests)
 =======
 >>>>>>> a979e6bda (fixes)
+=======
+>>>>>>> dcae6d69e (fixes and add metric tests)
 void TQuerySpan::End(EStatus status) noexcept {
     if (Span_) {
         try {

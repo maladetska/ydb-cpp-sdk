@@ -46,6 +46,7 @@ public:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     virtual std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const = 0;
     virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const = 0;
 =======
@@ -60,6 +61,10 @@ public:
     virtual std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const = 0;
     virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const = 0;
 >>>>>>> a979e6bda (fixes)
+=======
+    virtual std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const = 0;
+    virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const = 0;
+>>>>>>> dcae6d69e (fixes and add metric tests)
 };
 
 } // namespace NYdb
