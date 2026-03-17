@@ -3,10 +3,7 @@
 #include <ydb-cpp-sdk/client/metrics/metrics.h>
 
 #include <opentelemetry/nostd/shared_ptr.h>
-
-namespace opentelemetry::metrics {
-class MeterProvider;
-}
+#include <opentelemetry/metrics/meter_provider.h>
 
 namespace NYdb::inline V3::NMetrics {
 

@@ -16,7 +16,6 @@ public:
     ~TQuerySpan() noexcept;
 
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
-    void SetQueryText(const std::string& query) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
 
     void End(EStatus status) noexcept;

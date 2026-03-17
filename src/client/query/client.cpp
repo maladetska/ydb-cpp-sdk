@@ -104,7 +104,6 @@ public:
         CollectParamsSize(params ? &params->GetProtoMap() : nullptr);
 
         auto span = std::make_shared<TQuerySpan>(Tracer_, "ExecuteQuery", DbDriverState_->DiscoveryEndpoint);
-        span->SetQueryText(query);
         auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "ExecuteQuery");
 
         return TExecQueryImpl::ExecuteQuery(

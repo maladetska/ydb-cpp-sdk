@@ -9,74 +9,80 @@
 #include <opentelemetry/sdk/metrics/meter_context.h>
 #include <opentelemetry/sdk/metrics/meter_provider.h>
 
+#include <unordered_set>
+
 namespace NYdb::inline V3::NMetrics {
 
 namespace {
 
-using namespace opentelemetry;
+namespace otel_metrics = opentelemetry::metrics;
+namespace otel_nostd = opentelemetry::nostd;
+namespace otel_common = opentelemetry::common;
+namespace otel_context = opentelemetry::context;
+namespace otel_sdk_metrics = opentelemetry::sdk::metrics;
 
-common::KeyValueIterableView<TLabels> MakeAttributes(const TLabels& labels) {
-    return common::KeyValueIterableView<TLabels>(labels);
+otel_common::KeyValueIterableView<TLabels> MakeAttributes(const TLabels& labels) {
+    return otel_common::KeyValueIterableView<TLabels>(labels);
 }
 
 class TOtelCounter : public ICounter {
 public:
-    TOtelCounter(nostd::shared_ptr<metrics::Counter<uint64_t>> counter, const TLabels& labels)
+    TOtelCounter(otel_nostd::shared_ptr<otel_metrics::Counter<uint64_t>> counter, const TLabels& labels)
         : Counter_(std::move(counter))
         , Labels_(labels)
     {}
 
     void Inc() override {
-        Counter_->Add(1, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
+        Counter_->Add(1, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
     }
 
 private:
-    nostd::shared_ptr<metrics::Counter<uint64_t>> Counter_;
+    otel_nostd::shared_ptr<otel_metrics::Counter<uint64_t>> Counter_;
     TLabels Labels_;
 };
 
 class TOtelUpDownCounterGauge : public IGauge {
 public:
-    TOtelUpDownCounterGauge(nostd::shared_ptr<metrics::UpDownCounter<double>> counter, const TLabels& labels)
+    TOtelUpDownCounterGauge(otel_nostd::shared_ptr<otel_metrics::UpDownCounter<double>> counter, const TLabels& labels)
         : Counter_(std::move(counter))
         , Labels_(labels)
     {}
 
     void Add(double delta) override {
-        Counter_->Add(delta, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
+        Counter_->Add(delta, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
         Value_ += delta;
     }
 
     void Set(double value) override {
-        Counter_->Add(value - Value_, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
+        Counter_->Add(value - Value_, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
         Value_ = value;
     }
 
 private:
-    nostd::shared_ptr<metrics::UpDownCounter<double>> Counter_;
+    otel_nostd::shared_ptr<otel_metrics::UpDownCounter<double>> Counter_;
     TLabels Labels_;
     double Value_ = 0;
 };
 
 class TOtelHistogram : public IHistogram {
 public:
-    TOtelHistogram(nostd::shared_ptr<metrics::Histogram<double>> histogram, const TLabels& labels)
+    TOtelHistogram(otel_nostd::shared_ptr<otel_metrics::Histogram<double>> histogram, const TLabels& labels)
         : Histogram_(std::move(histogram))
         , Labels_(labels)
     {}
 
     void Record(double value) override {
-        Histogram_->Record(value, MakeAttributes(Labels_), context::RuntimeContext::GetCurrent());
+        Histogram_->Record(value, MakeAttributes(Labels_), otel_context::RuntimeContext::GetCurrent());
     }
 
 private:
-    nostd::shared_ptr<metrics::Histogram<double>> Histogram_;
+    otel_nostd::shared_ptr<otel_metrics::Histogram<double>> Histogram_;
     TLabels Labels_;
 };
 
 class TOtelMetricRegistry : public IMetricRegistry {
 public:
-    TOtelMetricRegistry(nostd::shared_ptr<metrics::MeterProvider> meterProvider)
+    TOtelMetricRegistry(otel_nostd::shared_ptr<otel_metrics::MeterProvider> meterProvider)
         : MeterProvider_(std::move(meterProvider))
         , Meter_(MeterProvider_->GetMeter("ydb-cpp-sdk", GetSdkSemver()))
     {}
@@ -116,7 +122,7 @@ private:
             return;
         }
 
-        auto* sdkProvider = dynamic_cast<sdk::metrics::MeterProvider*>(MeterProvider_.get());
+        auto* sdkProvider = dynamic_cast<otel_sdk_metrics::MeterProvider*>(MeterProvider_.get());
         if (!sdkProvider) {
             return;
         }
@@ -128,32 +134,32 @@ private:
             }
         }
 
-        auto selector = std::make_unique<sdk::metrics::InstrumentSelector>(
-            sdk::metrics::InstrumentType::kHistogram,
+        auto selector = std::make_unique<otel_sdk_metrics::InstrumentSelector>(
+            otel_sdk_metrics::InstrumentType::kHistogram,
             name,
             unit
         );
-        auto meterSelector = std::make_unique<sdk::metrics::MeterSelector>(
-            "ydb-cpp-sdk",
-            GetSdkSemver(),
-            {}
+        auto meterSelector = std::make_unique<otel_sdk_metrics::MeterSelector>(
+            std::string("ydb-cpp-sdk"),
+            std::string(GetSdkSemver()),
+            std::string()
         );
 
-        auto histogramConfig = std::make_shared<sdk::metrics::HistogramAggregationConfig>();
+        auto histogramConfig = std::make_shared<otel_sdk_metrics::HistogramAggregationConfig>();
         histogramConfig->boundaries_ = buckets;
 
-        auto view = std::make_unique<sdk::metrics::View>(
-            {},
-            {},
-            sdk::metrics::AggregationType::kHistogram,
+        auto view = std::make_unique<otel_sdk_metrics::View>(
+            std::string(),
+            std::string(),
+            otel_sdk_metrics::AggregationType::kHistogram,
             histogramConfig
         );
 
         sdkProvider->AddView(std::move(selector), std::move(meterSelector), std::move(view));
     }
 
-    nostd::shared_ptr<metrics::MeterProvider> MeterProvider_;
-    nostd::shared_ptr<metrics::Meter> Meter_;
+    otel_nostd::shared_ptr<otel_metrics::MeterProvider> MeterProvider_;
+    otel_nostd::shared_ptr<otel_metrics::Meter> Meter_;
     std::mutex HistogramViewsLock_;
     std::unordered_set<std::string> HistogramViews_;
 };

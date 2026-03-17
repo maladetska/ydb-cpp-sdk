@@ -3,10 +3,7 @@
 #include <ydb-cpp-sdk/client/trace/trace.h>
 
 #include <opentelemetry/nostd/shared_ptr.h>
-
-namespace opentelemetry::trace {
-class TracerProvider;
-}
+#include <opentelemetry/trace/tracer_provider.h>
 
 namespace NYdb::inline V3::NMetrics {
 

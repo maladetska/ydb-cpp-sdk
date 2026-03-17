@@ -104,17 +104,6 @@ void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     }
 }
 
-void TQuerySpan::SetQueryText(const std::string& query) noexcept {
-    if (!Span_ || query.empty()) {
-        return;
-    }
-    try {
-        Span_->SetAttribute("db.query.text", query);
-    } catch (...) {
-        SafeLogSpanError("failed to set query text");
-    }
-}
-
 void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
     if (!Span_) {
         return;

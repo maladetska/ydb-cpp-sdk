@@ -115,3 +115,16 @@ add_ydb_test(NAME client-ydb_metrics_ut GTEST
   LABELS
     unit
 )
+
+add_ydb_test(NAME client-ydb_query_spans_ut GTEST
+  INCLUDE_DIRS
+    ${YDB_SDK_SOURCE_DIR}
+  SOURCES
+    query/query_spans_ut.cpp
+  LINK_LIBRARIES
+    yutil
+    client-ydb_query-impl
+    client-trace
+  LABELS
+    unit
+)
