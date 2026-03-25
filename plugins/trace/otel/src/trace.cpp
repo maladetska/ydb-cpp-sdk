@@ -1,6 +1,7 @@
 #include <ydb-cpp-sdk/open_telemetry/trace.h>
 
 #include <opentelemetry/common/attribute_value.h>
+#include <opentelemetry/trace/scope.h>
 #include <opentelemetry/trace/tracer.h>
 #include <opentelemetry/trace/tracer_provider.h>
 
@@ -22,6 +23,16 @@ otel_trace::SpanKind MapSpanKind(ESpanKind kind) {
     }
     return otel_trace::SpanKind::kInternal;
 }
+
+class TOtelScope : public IScope {
+public:
+    TOtelScope(otel_nostd::shared_ptr<otel_trace::Span> span)
+        : Scope_(std::move(span))
+    {}
+
+private:
+    otel_trace::Scope Scope_;
+};
 
 class TOtelSpan : public ISpan {
 public:
@@ -52,6 +63,10 @@ public:
             }
             Span_->AddEvent(name, attrs);
         }
+    }
+
+    std::unique_ptr<IScope> Activate() override {
+        return std::make_unique<TOtelScope>(Span_);
     }
 
 private:

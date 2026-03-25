@@ -12,7 +12,10 @@ struct TFakeEvent {
     std::map<std::string, std::string> Attributes;
 };
 
-class TFakeSpan : public NMetrics::ISpan {
+class TFakeScope : public NTrace::IScope {
+};
+
+class TFakeSpan : public NTrace::ISpan {
 public:
     void End() override {
         std::lock_guard lock(Mutex_);
@@ -34,9 +37,20 @@ public:
         Events_.push_back({name, attributes});
     }
 
+    std::unique_ptr<NTrace::IScope> Activate() override {
+        std::lock_guard lock(Mutex_);
+        Activated_ = true;
+        return std::make_unique<TFakeScope>();
+    }
+
     bool IsEnded() const {
         std::lock_guard lock(Mutex_);
         return Ended_;
+    }
+
+    bool IsActivated() const {
+        std::lock_guard lock(Mutex_);
+        return Activated_;
     }
 
     std::string GetStringAttribute(const std::string& key) const {
@@ -69,14 +83,15 @@ public:
 private:
     mutable std::mutex Mutex_;
     bool Ended_ = false;
+    bool Activated_ = false;
     std::map<std::string, std::string> StringAttributes_;
     std::map<std::string, int64_t> IntAttributes_;
     std::vector<TFakeEvent> Events_;
 };
 
-class TFakeTracer : public NMetrics::ITracer {
+class TFakeTracer : public NTrace::ITracer {
 public:
-    std::shared_ptr<NMetrics::ISpan> StartSpan(const std::string& name, NMetrics::ESpanKind kind) override {
+    std::shared_ptr<NTrace::ISpan> StartSpan(const std::string& name, NTrace::ESpanKind kind) override {
         auto span = std::make_shared<TFakeSpan>();
         std::lock_guard lock(Mutex_);
         Spans_.push_back({name, kind, span});
@@ -85,7 +100,7 @@ public:
 
     struct TSpanRecord {
         std::string Name;
-        NMetrics::ESpanKind Kind;
+        NTrace::ESpanKind Kind;
         std::shared_ptr<TFakeSpan> Span;
     };
 
@@ -114,9 +129,9 @@ private:
     std::vector<TSpanRecord> Spans_;
 };
 
-class TFakeTraceProvider : public NMetrics::ITraceProvider {
+class TFakeTraceProvider : public NTrace::ITraceProvider {
 public:
-    std::shared_ptr<NMetrics::ITracer> GetTracer(const std::string& name) override {
+    std::shared_ptr<NTrace::ITracer> GetTracer(const std::string& name) override {
         std::lock_guard lock(Mutex_);
         auto it = Tracers_.find(name);
         if (it != Tracers_.end()) {

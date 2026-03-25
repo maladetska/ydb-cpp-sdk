@@ -73,7 +73,7 @@ cmake --build . --target otel_tracing_example -j$(nproc)
 |-----------|------------------------------|---------------------------------|
 | Grafana   | http://localhost:3000         | Дашборд "YDB QueryService"     |
 | Jaeger    | http://localhost:16686        | Поиск трейсов по сервису        |
-| Prometheus| http://localhost:9090         | Метрики `ydb_ydb_query_*`      |
+| Prometheus| http://localhost:9090         | Метрики `ydb_query_*`      |
 
 **Grafana**: логин `admin` / пароль `admin`.
 
@@ -96,9 +96,9 @@ cmake --build . --target otel_tracing_example -j$(nproc)
   - `db.response.status_code`, `error.type` (при ошибках)
 
 #### В Prometheus:
-- `ydb_ydb_query_requests_total` — счётчик запросов
-- `ydb_ydb_query_errors_total` — счётчик ошибок
-- `ydb_ydb_query_latency_ms_bucket` — гистограмма задержек
+- `ydb_query_requests_total` — счётчик запросов
+- `ydb_query_errors_total` — счётчик ошибок
+- `ydb_query_latency_ms_bucket` — гистограмма задержек
 
 ### 6. Остановить
 

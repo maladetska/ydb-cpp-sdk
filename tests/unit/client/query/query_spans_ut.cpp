@@ -240,3 +240,21 @@ TEST_F(QuerySpanTest, EmptyEndpointDoesNotCrash) {
         span.End(EStatus::SUCCESS);
     });
 }
+
+TEST_F(QuerySpanTest, ActivateReturnsScope) {
+    TQuerySpan span(Tracer, "RetryQuery", "localhost:2135");
+    auto scope = span.Activate();
+    EXPECT_NE(scope, nullptr);
+
+    auto fakeSpan = Tracer->GetLastSpan();
+    ASSERT_NE(fakeSpan, nullptr);
+    EXPECT_TRUE(fakeSpan->IsActivated());
+
+    span.End(EStatus::SUCCESS);
+}
+
+TEST_F(QuerySpanTest, ActivateNullTracerReturnsNull) {
+    TQuerySpan span(nullptr, "RetryQuery", "localhost:2135");
+    auto scope = span.Activate();
+    EXPECT_EQ(scope, nullptr);
+}

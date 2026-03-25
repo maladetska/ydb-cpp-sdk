@@ -601,6 +601,10 @@ public:
             ), NSessionPool::PERIODIC_ACTION_INTERVAL);
     }
 
+    std::shared_ptr<TQuerySpan> CreateRetrySpan(const std::string& operationName) {
+        return std::make_shared<TQuerySpan>(Tracer_, operationName, DbDriverState_->DiscoveryEndpoint);
+    }
+
     void CollectRetryStatAsync(EStatus status) {
         RetryOperationStatCollector_.IncAsyncRetryOperation(status);
     }
@@ -718,13 +722,21 @@ TAsyncStatus TQueryClient::RetryQuery(TQueryWithoutSessionFunc&& queryFunc, TRet
 }
 
 TStatus TQueryClient::RetryQuerySync(const TQuerySyncFunc& queryFunc, TRetryOperationSettings settings) {
+    auto parentSpan = Impl_->CreateRetrySpan("RetryQuery");
+    auto scope = parentSpan->Activate();
     NRetry::Sync::TRetryWithSession ctx(*this, queryFunc, settings);
-    return ctx.Execute();
+    auto status = ctx.Execute();
+    parentSpan->End(status.GetStatus());
+    return status;
 }
 
 TStatus TQueryClient::RetryQuerySync(const TQueryWithoutSessionSyncFunc& queryFunc, TRetryOperationSettings settings) {
+    auto parentSpan = Impl_->CreateRetrySpan("RetryQuery");
+    auto scope = parentSpan->Activate();
     NRetry::Sync::TRetryWithoutSession ctx(*this, queryFunc, settings);
-    return ctx.Execute();
+    auto status = ctx.Execute();
+    parentSpan->End(status.GetStatus());
+    return status;
 }
 
 TAsyncExecuteQueryResult TQueryClient::RetryQuery(const std::string& query, const TTxControl& txControl,
