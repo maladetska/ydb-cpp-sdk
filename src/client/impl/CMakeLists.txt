@@ -1,5 +1,6 @@
 add_subdirectory(endpoints)
 add_subdirectory(executor)
 add_subdirectory(internal)
+add_subdirectory(observability)
 add_subdirectory(session)
 add_subdirectory(stats)

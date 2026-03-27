@@ -9,10 +9,13 @@ target_link_libraries(client-ydb_query-impl PUBLIC
   client-ydb_result
 )
 
+target_link_libraries(client-ydb_query-impl PUBLIC
+  impl-observability
+)
+
 target_sources(client-ydb_query-impl PRIVATE
   exec_query.cpp
   client_session.cpp
-  query_metrics.cpp
   query_spans.cpp
 )
 

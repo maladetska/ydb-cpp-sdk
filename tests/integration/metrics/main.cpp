@@ -39,12 +39,14 @@ std::shared_ptr<TFakeCounter> GetCounter(
     return registry->GetCounter(name, {{"operation", operation}});
 }
 
-std::shared_ptr<TFakeHistogram> GetHistogram(
+std::shared_ptr<TFakeHistogram> GetDuration(
     const std::shared_ptr<TFakeMetricRegistry>& registry,
-    const std::string& name,
     const std::string& operation)
 {
-    return registry->GetHistogram(name, {{"operation", operation}});
+    return registry->GetHistogram("db.client.operation.duration", {
+        {"db.system.name", "ydb"},
+        {"db.operation.name", operation},
+    });
 }
 
 } // namespace
@@ -70,10 +72,10 @@ TEST(QueryMetricsIntegration, ExecuteQuerySuccessRecordsMetrics) {
     ASSERT_NE(errors, nullptr);
     EXPECT_EQ(errors->Get(), 0);
 
-    auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
-    ASSERT_NE(latency, nullptr) << "ExecuteQuery latency histogram not created";
-    EXPECT_GE(latency->Count(), 1u);
-    for (double v : latency->GetValues()) {
+    auto duration = GetDuration(registry, "ExecuteQuery");
+    ASSERT_NE(duration, nullptr) << "ExecuteQuery duration histogram not created";
+    EXPECT_GE(duration->Count(), 1u);
+    for (double v : duration->GetValues()) {
         EXPECT_GE(v, 0.0);
     }
 
@@ -101,9 +103,9 @@ TEST(QueryMetricsIntegration, ExecuteQueryErrorRecordsErrorMetric) {
     ASSERT_NE(errors, nullptr);
     EXPECT_GE(errors->Get(), 1);
 
-    auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
-    ASSERT_NE(latency, nullptr);
-    EXPECT_GE(latency->Count(), 1u);
+    auto duration = GetDuration(registry, "ExecuteQuery");
+    ASSERT_NE(duration, nullptr);
+    EXPECT_GE(duration->Count(), 1u);
 
     driver.Stop(true);
 }
@@ -119,9 +121,9 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     ASSERT_NE(requests, nullptr) << "CreateSession request counter not created";
     EXPECT_GE(requests->Get(), 1);
 
-    auto latency = GetHistogram(registry, "ydb.query.latency_ms", "CreateSession");
-    ASSERT_NE(latency, nullptr) << "CreateSession latency histogram not created";
-    EXPECT_GE(latency->Count(), 1u);
+    auto duration = GetDuration(registry, "CreateSession");
+    ASSERT_NE(duration, nullptr) << "CreateSession duration histogram not created";
+    EXPECT_GE(duration->Count(), 1u);
 
     driver.Stop(true);
 }
@@ -152,9 +154,9 @@ TEST(QueryMetricsIntegration, CommitTransactionRecordsMetrics) {
         ASSERT_NE(commitRequests, nullptr) << "Commit request counter not created";
         EXPECT_GE(commitRequests->Get(), 1);
 
-        auto commitLatency = GetHistogram(registry, "ydb.query.latency_ms", "Commit");
-        ASSERT_NE(commitLatency, nullptr);
-        EXPECT_GE(commitLatency->Count(), 1u);
+        auto commitDuration = GetDuration(registry, "Commit");
+        ASSERT_NE(commitDuration, nullptr);
+        EXPECT_GE(commitDuration->Count(), 1u);
     }
 
     driver.Stop(true);
@@ -183,9 +185,9 @@ TEST(QueryMetricsIntegration, RollbackTransactionRecordsMetrics) {
     ASSERT_NE(rollbackErrors, nullptr);
     EXPECT_EQ(rollbackErrors->Get(), 0);
 
-    auto rollbackLatency = GetHistogram(registry, "ydb.query.latency_ms", "Rollback");
-    ASSERT_NE(rollbackLatency, nullptr);
-    EXPECT_GE(rollbackLatency->Count(), 1u);
+    auto rollbackDuration = GetDuration(registry, "Rollback");
+    ASSERT_NE(rollbackDuration, nullptr);
+    EXPECT_GE(rollbackDuration->Count(), 1u);
 
     driver.Stop(true);
 }
@@ -215,9 +217,9 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
     ASSERT_NE(errors, nullptr);
     EXPECT_EQ(errors->Get(), 0);
 
-    auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
-    ASSERT_NE(latency, nullptr);
-    EXPECT_EQ(latency->Count(), static_cast<size_t>(numQueries));
+    auto duration = GetDuration(registry, "ExecuteQuery");
+    ASSERT_NE(duration, nullptr);
+    EXPECT_EQ(duration->Count(), static_cast<size_t>(numQueries));
 
     driver.Stop(true);
 }
@@ -246,7 +248,7 @@ TEST(QueryMetricsIntegration, NoRegistryDoesNotBreakOperations) {
     driver.Stop(true);
 }
 
-TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
+TEST(QueryMetricsIntegration, DurationValuesAreRealistic) {
     auto [driver, registry] = MakeRunArgs();
     TQueryClient client(driver);
 
@@ -260,13 +262,13 @@ TEST(QueryMetricsIntegration, LatencyValuesAreRealistic) {
     ).ExtractValueSync();
     ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
 
-    auto latency = GetHistogram(registry, "ydb.query.latency_ms", "ExecuteQuery");
-    ASSERT_NE(latency, nullptr);
-    ASSERT_GE(latency->Count(), 1u);
+    auto duration = GetDuration(registry, "ExecuteQuery");
+    ASSERT_NE(duration, nullptr);
+    ASSERT_GE(duration->Count(), 1u);
 
-    for (double v : latency->GetValues()) {
-        EXPECT_GE(v, 0.0) << "Latency must be non-negative";
-        EXPECT_LT(v, 30000.0) << "Latency > 30s is unrealistic for SELECT 1";
+    for (double v : duration->GetValues()) {
+        EXPECT_GE(v, 0.0) << "Duration must be non-negative";
+        EXPECT_LT(v, 30.0) << "Duration > 30s is unrealistic for SELECT 1";
     }
 
     driver.Stop(true);

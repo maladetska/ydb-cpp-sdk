@@ -10,6 +10,8 @@ target_link_libraries(client-ydb_table-impl
     client-impl-ydb_endpoints
     impl-session
     client-ydb_table-query_stats
+    client-metrics
+    impl-observability
   PRIVATE
     OpenSSL::SSL
 )
