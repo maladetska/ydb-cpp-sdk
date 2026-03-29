@@ -33,9 +33,25 @@ class IMetricRegistry {
 public:
     virtual ~IMetricRegistry() = default;
 
-    virtual std::shared_ptr<ICounter> Counter(const std::string& name, const TLabels& labels = {}) = 0;
-    virtual std::shared_ptr<IGauge> Gauge(const std::string& name, const TLabels& labels = {}) = 0;
-    virtual std::shared_ptr<IHistogram> Histogram(const std::string& name, const std::vector<double>& buckets, const TLabels& labels = {}) = 0;
+    virtual std::shared_ptr<ICounter> Counter(
+        const std::string& name,
+        const TLabels& labels = {},
+        const std::string& description = {},
+        const std::string& unit = {}
+    ) = 0;
+    virtual std::shared_ptr<IGauge> Gauge(
+        const std::string& name,
+        const TLabels& labels = {},
+        const std::string& description = {},
+        const std::string& unit = {}
+    ) = 0;
+    virtual std::shared_ptr<IHistogram> Histogram(
+        const std::string& name,
+        const std::vector<double>& buckets,
+        const TLabels& labels = {},
+        const std::string& description = {},
+        const std::string& unit = {}
+    ) = 0;
 };
 
 } // namespace NYdb::NMetrics

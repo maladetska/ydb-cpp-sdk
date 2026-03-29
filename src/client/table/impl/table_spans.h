@@ -10,20 +10,16 @@
 #include <memory>
 #include <string>
 
-namespace NYdb::inline V3::NQuery {
+namespace NYdb::inline V3::NTable {
 
-class TQuerySpan {
+class TTableSpan {
 public:
-    TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer
+    TTableSpan(std::shared_ptr<NMetrics::ITracer> tracer
         , const std::string& operationName
         , const std::string& endpoint
         , const TLog& log
     );
-    ~TQuerySpan() noexcept;
-
-    void SetPeerEndpoint(const std::string& endpoint) noexcept;
-    void SetQueryText(const std::string& query) noexcept;
-    void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
+    ~TTableSpan() noexcept;
 
     void End(EStatus status) noexcept;
 
@@ -32,4 +28,4 @@ private:
     std::shared_ptr<NMetrics::ISpan> Span_;
 };
 
-} // namespace NYdb::NQuery
+} // namespace NYdb::NTable

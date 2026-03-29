@@ -103,7 +103,7 @@ public:
         CollectQuerySize(query);
         CollectParamsSize(params ? &params->GetProtoMap() : nullptr);
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "ExecuteQuery", DbDriverState_->DiscoveryEndpoint);
+        auto span = std::make_shared<TQuerySpan>(Tracer_, "ExecuteQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
         span->SetQueryText(query);
         auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "ExecuteQuery");
 
@@ -188,7 +188,7 @@ public:
 
         auto promise = NThreading::NewPromise<TStatus>();
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "Rollback", DbDriverState_->DiscoveryEndpoint);
+        auto span = std::make_shared<TQuerySpan>(Tracer_, "Rollback", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
         auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "Rollback");
 
         auto responseCb = [promise, session, span, metrics]
@@ -240,7 +240,7 @@ public:
 
         auto promise = NThreading::NewPromise<TCommitTransactionResult>();
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "Commit", DbDriverState_->DiscoveryEndpoint);
+        auto span = std::make_shared<TQuerySpan>(Tracer_, "Commit", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
         auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "Commit");
 
         auto responseCb = [promise, session, span, metrics]
@@ -556,7 +556,7 @@ public:
             std::shared_ptr<TQueryMetrics> Metrics;
         };
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint);
+        auto span = std::make_shared<TQuerySpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
         auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "CreateSession");
         auto ctx = std::make_unique<TQueryClientGetSessionCtx>(shared_from_this(), settings, span, metrics);
         auto future = ctx->GetFuture();

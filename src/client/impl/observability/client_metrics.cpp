@@ -1,6 +1,7 @@
 #include "client_metrics.h"
 
 #include <exception>
+#include <util/string/cast.h>
 
 namespace NYdb::inline V3::NObservability {
 
@@ -18,65 +19,32 @@ void SafeLogMetricsError(const char* /*message*/) noexcept {
     }
 }
 
-std::string StatusToString(EStatus status) {
-    switch (status) {
-        case EStatus::SUCCESS:                  return "SUCCESS";
-        case EStatus::BAD_REQUEST:              return "BAD_REQUEST";
-        case EStatus::UNAUTHORIZED:             return "UNAUTHORIZED";
-        case EStatus::INTERNAL_ERROR:           return "INTERNAL_ERROR";
-        case EStatus::ABORTED:                  return "ABORTED";
-        case EStatus::UNAVAILABLE:              return "UNAVAILABLE";
-        case EStatus::OVERLOADED:               return "OVERLOADED";
-        case EStatus::SCHEME_ERROR:             return "SCHEME_ERROR";
-        case EStatus::GENERIC_ERROR:            return "GENERIC_ERROR";
-        case EStatus::TIMEOUT:                  return "TIMEOUT";
-        case EStatus::BAD_SESSION:              return "BAD_SESSION";
-        case EStatus::PRECONDITION_FAILED:      return "PRECONDITION_FAILED";
-        case EStatus::ALREADY_EXISTS:           return "ALREADY_EXISTS";
-        case EStatus::NOT_FOUND:                return "NOT_FOUND";
-        case EStatus::SESSION_EXPIRED:          return "SESSION_EXPIRED";
-        case EStatus::CANCELLED:                return "CANCELLED";
-        case EStatus::UNDETERMINED:             return "UNDETERMINED";
-        case EStatus::UNSUPPORTED:              return "UNSUPPORTED";
-        case EStatus::SESSION_BUSY:             return "SESSION_BUSY";
-        case EStatus::EXTERNAL_ERROR:           return "EXTERNAL_ERROR";
-        case EStatus::TRANSPORT_UNAVAILABLE:    return "TRANSPORT_UNAVAILABLE";
-        case EStatus::CLIENT_RESOURCE_EXHAUSTED:return "CLIENT_RESOURCE_EXHAUSTED";
-        case EStatus::CLIENT_DEADLINE_EXCEEDED: return "CLIENT_DEADLINE_EXCEEDED";
-        case EStatus::CLIENT_INTERNAL_ERROR:    return "CLIENT_INTERNAL_ERROR";
-        case EStatus::CLIENT_CANCELLED:         return "CLIENT_CANCELLED";
-        case EStatus::CLIENT_UNAUTHENTICATED:   return "CLIENT_UNAUTHENTICATED";
-        case EStatus::CLIENT_CALL_UNIMPLEMENTED:return "CLIENT_CALL_UNIMPLEMENTED";
-        case EStatus::CLIENT_OUT_OF_RANGE:      return "CLIENT_OUT_OF_RANGE";
-        case EStatus::CLIENT_DISCOVERY_FAILED:  return "CLIENT_DISCOVERY_FAILED";
-        case EStatus::CLIENT_LIMITS_REACHED:    return "CLIENT_LIMITS_REACHED";
-        default:                                return "STATUS_UNDEFINED";
-    }
-}
-
 } // namespace
 
 static const std::vector<double> DurationBucketsSec = {
     0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10
 };
 
-TClientMetrics::TClientMetrics(std::shared_ptr<NMetrics::IMetricRegistry> registry,
-    const std::string& prefix, const std::string& operationName)
+static constexpr const char* RequestsDescription = "Number of database client operations started.";
+static constexpr const char* ErrorsDescription = "Number of database client operations that failed.";
+static constexpr const char* DurationDescription = "Duration of database client operations.";
+
+TClientMetrics::TClientMetrics(std::shared_ptr<NMetrics::IMetricRegistry> registry
+    , const std::string& operationName
+) : Registry_(std::move(registry))
+    , OperationName_(operationName)
 {
-    if (!registry) {
+    if (!Registry_) {
         return;
     }
 
     try {
-        NMetrics::TLabels labels = {{"operation", operationName}};
-        RequestCounter_ = registry->Counter(prefix + ".requests", labels);
-        ErrorCounter_ = registry->Counter(prefix + ".errors", labels);
-
-        NMetrics::TLabels durationLabels = {
-            {"db.system.name", "ydb"},
+        NMetrics::TLabels labels = {
+            {"db.system.name", "other_sql"},
             {"db.operation.name", operationName},
         };
-        DurationHistogram_ = registry->Histogram("db.client.operation.duration", DurationBucketsSec, durationLabels);
+        RequestCounter_ = Registry_->Counter("db.client.operation.requests", labels, RequestsDescription, "{operation}");
+        ErrorCounter_ = Registry_->Counter("db.client.operation.errors", labels, ErrorsDescription, "{error}");
 
         RequestCounter_->Inc();
         StartTime_ = std::chrono::steady_clock::now();
@@ -84,7 +52,7 @@ TClientMetrics::TClientMetrics(std::shared_ptr<NMetrics::IMetricRegistry> regist
         SafeLogMetricsError("failed to initialize metrics");
         RequestCounter_.reset();
         ErrorCounter_.reset();
-        DurationHistogram_.reset();
+        Registry_.reset();
     }
 }
 
@@ -99,10 +67,27 @@ void TClientMetrics::End(EStatus status) noexcept {
     Ended_ = true;
 
     try {
-        if (DurationHistogram_) {
+        const std::string statusCode = ToString(status);
+        if (Registry_) {
             auto elapsed = std::chrono::steady_clock::now() - StartTime_;
             double durationSec = std::chrono::duration<double>(elapsed).count();
-            DurationHistogram_->Record(durationSec);
+            NMetrics::TLabels durationLabels = {
+                {"db.system.name", "other_sql"},
+                {"db.operation.name", OperationName_},
+                {"db.response.status_code", statusCode},
+            };
+            if (status != EStatus::SUCCESS) {
+                durationLabels["error.type"] = statusCode;
+            }
+            auto durationHistogram = Registry_->Histogram(
+                "db.client.operation.duration",
+                DurationBucketsSec,
+                durationLabels,
+                DurationDescription,
+                "s");
+            if (durationHistogram) {
+                durationHistogram->Record(durationSec);
+            }
         }
 
         if (status != EStatus::SUCCESS && ErrorCounter_) {

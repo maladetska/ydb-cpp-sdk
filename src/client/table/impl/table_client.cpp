@@ -22,6 +22,12 @@ TTableClient::TImpl::TImpl(std::shared_ptr<TGRpcConnectionsImpl>&& connections, 
     , Settings_(settings)
     , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
 {
+    MetricRegistry_ = Connections_->GetExternalMetricRegistry();
+
+    if (auto traceProvider = Connections_->GetTraceProvider()) {
+        Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-table");
+    }
+
     if (!DbDriverState_->StatCollector.IsCollecting()) {
         return;
     }
@@ -378,8 +384,10 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
 
     auto createSessionPromise = NewPromise<TCreateSessionResult>();
     auto self = shared_from_this();
+    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "CreateSession");
+    auto span = std::make_shared<TTableSpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
-    auto createSessionExtractor = [createSessionPromise, self, standalone]
+    auto createSessionExtractor = [createSessionPromise, self, standalone, metrics, span]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
             Ydb::Table::CreateSessionResult result;
             if (any) {
@@ -392,10 +400,11 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
                 }
                 self->DbDriverState_->StatCollector.IncSessionsOnHost(status.Endpoint);
             } else {
-                // We do not use SessionStatusInterception for CreateSession request
                 session.SessionImpl_->MarkBroken();
             }
             TCreateSessionResult val(TStatus(std::move(status)), std::move(session));
+            metrics->End(val.GetStatus());
+            span->End(val.GetStatus());
             createSessionPromise.SetValue(std::move(val));
         };
 
@@ -759,11 +768,21 @@ TAsyncStatus TTableClient::TImpl::ExecuteSchemeQuery(const TSession& session, co
     request.set_session_id(TStringType{session.GetId()});
     request.set_yql_text(TStringType{query});
 
-    return RunSimple<Ydb::Table::V1::TableService, Ydb::Table::ExecuteSchemeQueryRequest, Ydb::Table::ExecuteSchemeQueryResponse>(
+    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "ExecuteSchemeQuery");
+    auto span = std::make_shared<TTableSpan>(Tracer_, "ExecuteSchemeQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
+
+    auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::ExecuteSchemeQueryRequest, Ydb::Table::ExecuteSchemeQueryResponse>(
         std::move(request),
         &Ydb::Table::V1::TableService::Stub::AsyncExecuteSchemeQuery,
         rpcSettings
     );
+
+    return future.Apply([metrics, span](NThreading::TFuture<TStatus> f) mutable {
+        auto status = f.ExtractValue();
+        metrics->End(status.GetStatus());
+        span->End(status.GetStatus());
+        return status;
+    });
 }
 
 TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSession& session, const TTxSettings& txSettings,
