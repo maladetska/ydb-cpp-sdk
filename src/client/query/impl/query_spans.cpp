@@ -65,11 +65,12 @@ TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::str
     ParseEndpoint(endpoint, host, port);
 
     try {
-        Span_ = tracer->StartSpan("ydb." + operationName, NMetrics::ESpanKind::CLIENT);
+        Span_ = tracer->StartSpan(operationName, NMetrics::ESpanKind::CLIENT);
         if (!Span_) {
             return;
         }
-        Span_->SetAttribute("db.system.name", "ydb");
+        Span_->SetAttribute("db.system.name", "other_sql");
+        Span_->SetAttribute("db.operation.name", operationName);
         Span_->SetAttribute("server.address", host);
         Span_->SetAttribute("server.port", static_cast<int64_t>(port));
     } catch (...) {
@@ -128,7 +129,7 @@ void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, s
 void TQuerySpan::End(EStatus status) noexcept {
     if (Span_) {
         try {
-            Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
+            Span_->SetAttribute("db.response.status_code", ToString(status));
             if (status != EStatus::SUCCESS) {
                 Span_->SetAttribute("error.type", ToString(status));
             }

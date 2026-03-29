@@ -68,7 +68,11 @@ struct TMetricKey {
 
 class TFakeMetricRegistry : public NMetrics::IMetricRegistry {
 public:
-    std::shared_ptr<NMetrics::ICounter> Counter(const std::string& name, const NMetrics::TLabels& labels) override {
+    std::shared_ptr<NMetrics::ICounter> Counter(const std::string& name
+        , const NMetrics::TLabels& labels
+        , const std::string& /*description*/
+        , const std::string& /*unit*/
+    ) override {
         std::lock_guard lock(Mutex_);
         auto key = TMetricKey{name, labels};
         auto it = Counters_.find(key);
@@ -80,7 +84,11 @@ public:
         return counter;
     }
 
-    std::shared_ptr<NMetrics::IGauge> Gauge(const std::string& name, const NMetrics::TLabels& labels) override {
+    std::shared_ptr<NMetrics::IGauge> Gauge(const std::string& name
+        , const NMetrics::TLabels& labels
+        , const std::string& /*description*/
+        , const std::string& /*unit*/
+    ) override {
         std::lock_guard lock(Mutex_);
         auto key = TMetricKey{name, labels};
         auto gauge = std::make_shared<TFakeGauge>();
@@ -88,7 +96,12 @@ public:
         return gauge;
     }
 
-    std::shared_ptr<NMetrics::IHistogram> Histogram(const std::string& name, const std::vector<double>& /*buckets*/, const NMetrics::TLabels& labels) override {
+    std::shared_ptr<NMetrics::IHistogram> Histogram(const std::string& name
+        , const std::vector<double>& /*buckets*/
+        , const NMetrics::TLabels& labels
+        , const std::string& /*description*/
+        , const std::string& /*unit*/
+    ) override {
         std::lock_guard lock(Mutex_);
         auto key = TMetricKey{name, labels};
         auto it = Histograms_.find(key);

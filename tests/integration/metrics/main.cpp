@@ -1,6 +1,7 @@
 #include <ydb-cpp-sdk/client/driver/driver.h>
 #include <ydb-cpp-sdk/client/query/client.h>
 #include <tests/common/fake_metric_registry.h>
+#include <util/string/cast.h>
 
 #include <library/cpp/testing/gtest/gtest.h>
 
@@ -36,17 +37,26 @@ std::shared_ptr<TFakeCounter> GetCounter(
     const std::string& name,
     const std::string& operation)
 {
-    return registry->GetCounter(name, {{"operation", operation}});
+    return registry->GetCounter(name, {
+        {"db.system.name", "other_sql"},
+        {"db.operation.name", operation},
+    });
 }
 
 std::shared_ptr<TFakeHistogram> GetDuration(
     const std::shared_ptr<TFakeMetricRegistry>& registry,
-    const std::string& operation)
+    const std::string& operation,
+    EStatus status)
 {
-    return registry->GetHistogram("db.client.operation.duration", {
-        {"db.system.name", "ydb"},
+    NMetrics::TLabels labels = {
+        {"db.system.name", "other_sql"},
         {"db.operation.name", operation},
-    });
+        {"db.response.status_code", ToString(status)},
+    };
+    if (status != EStatus::SUCCESS) {
+        labels["error.type"] = ToString(status);
+    }
+    return registry->GetHistogram("db.client.operation.duration", labels);
 }
 
 } // namespace
@@ -64,15 +74,15 @@ TEST(QueryMetricsIntegration, ExecuteQuerySuccessRecordsMetrics) {
     ).ExtractValueSync();
     ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
 
-    auto requests = GetCounter(registry, "ydb.query.requests", "ExecuteQuery");
+    auto requests = GetCounter(registry, "db.client.operation.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr) << "ExecuteQuery request counter not created";
     EXPECT_GE(requests->Get(), 1);
 
-    auto errors = GetCounter(registry, "ydb.query.errors", "ExecuteQuery");
+    auto errors = GetCounter(registry, "db.client.operation.errors", "ExecuteQuery");
     ASSERT_NE(errors, nullptr);
     EXPECT_EQ(errors->Get(), 0);
 
-    auto duration = GetDuration(registry, "ExecuteQuery");
+    auto duration = GetDuration(registry, "ExecuteQuery", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr) << "ExecuteQuery duration histogram not created";
     EXPECT_GE(duration->Count(), 1u);
     for (double v : duration->GetValues()) {
@@ -95,15 +105,15 @@ TEST(QueryMetricsIntegration, ExecuteQueryErrorRecordsErrorMetric) {
     ).ExtractValueSync();
     EXPECT_NE(result.GetStatus(), EStatus::SUCCESS);
 
-    auto requests = GetCounter(registry, "ydb.query.requests", "ExecuteQuery");
+    auto requests = GetCounter(registry, "db.client.operation.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr);
     EXPECT_GE(requests->Get(), 1);
 
-    auto errors = GetCounter(registry, "ydb.query.errors", "ExecuteQuery");
+    auto errors = GetCounter(registry, "db.client.operation.errors", "ExecuteQuery");
     ASSERT_NE(errors, nullptr);
     EXPECT_GE(errors->Get(), 1);
 
-    auto duration = GetDuration(registry, "ExecuteQuery");
+    auto duration = GetDuration(registry, "ExecuteQuery", result.GetStatus());
     ASSERT_NE(duration, nullptr);
     EXPECT_GE(duration->Count(), 1u);
 
@@ -117,11 +127,11 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     auto session = client.GetSession().ExtractValueSync();
     ASSERT_TRUE(session.IsSuccess()) << session.GetIssues().ToString();
 
-    auto requests = GetCounter(registry, "ydb.query.requests", "CreateSession");
+    auto requests = GetCounter(registry, "db.client.operation.requests", "CreateSession");
     ASSERT_NE(requests, nullptr) << "CreateSession request counter not created";
     EXPECT_GE(requests->Get(), 1);
 
-    auto duration = GetDuration(registry, "CreateSession");
+    auto duration = GetDuration(registry, "CreateSession", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr) << "CreateSession duration histogram not created";
     EXPECT_GE(duration->Count(), 1u);
 
@@ -150,11 +160,11 @@ TEST(QueryMetricsIntegration, CommitTransactionRecordsMetrics) {
         auto commitResult = execResult.GetTransaction()->Commit().ExtractValueSync();
         ASSERT_TRUE(commitResult.IsSuccess()) << commitResult.GetIssues().ToString();
 
-        auto commitRequests = GetCounter(registry, "ydb.query.requests", "Commit");
+        auto commitRequests = GetCounter(registry, "db.client.operation.requests", "Commit");
         ASSERT_NE(commitRequests, nullptr) << "Commit request counter not created";
         EXPECT_GE(commitRequests->Get(), 1);
 
-        auto commitDuration = GetDuration(registry, "Commit");
+        auto commitDuration = GetDuration(registry, "Commit", EStatus::SUCCESS);
         ASSERT_NE(commitDuration, nullptr);
         EXPECT_GE(commitDuration->Count(), 1u);
     }
@@ -177,15 +187,15 @@ TEST(QueryMetricsIntegration, RollbackTransactionRecordsMetrics) {
     auto rollbackResult = tx.Rollback().ExtractValueSync();
     ASSERT_TRUE(rollbackResult.IsSuccess()) << rollbackResult.GetIssues().ToString();
 
-    auto rollbackRequests = GetCounter(registry, "ydb.query.requests", "Rollback");
+    auto rollbackRequests = GetCounter(registry, "db.client.operation.requests", "Rollback");
     ASSERT_NE(rollbackRequests, nullptr) << "Rollback request counter not created";
     EXPECT_GE(rollbackRequests->Get(), 1);
 
-    auto rollbackErrors = GetCounter(registry, "ydb.query.errors", "Rollback");
+    auto rollbackErrors = GetCounter(registry, "db.client.operation.errors", "Rollback");
     ASSERT_NE(rollbackErrors, nullptr);
     EXPECT_EQ(rollbackErrors->Get(), 0);
 
-    auto rollbackDuration = GetDuration(registry, "Rollback");
+    auto rollbackDuration = GetDuration(registry, "Rollback", EStatus::SUCCESS);
     ASSERT_NE(rollbackDuration, nullptr);
     EXPECT_GE(rollbackDuration->Count(), 1u);
 
@@ -209,15 +219,15 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
         ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
     }
 
-    auto requests = GetCounter(registry, "ydb.query.requests", "ExecuteQuery");
+    auto requests = GetCounter(registry, "db.client.operation.requests", "ExecuteQuery");
     ASSERT_NE(requests, nullptr);
     EXPECT_EQ(requests->Get(), numQueries);
 
-    auto errors = GetCounter(registry, "ydb.query.errors", "ExecuteQuery");
+    auto errors = GetCounter(registry, "db.client.operation.errors", "ExecuteQuery");
     ASSERT_NE(errors, nullptr);
     EXPECT_EQ(errors->Get(), 0);
 
-    auto duration = GetDuration(registry, "ExecuteQuery");
+    auto duration = GetDuration(registry, "ExecuteQuery", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr);
     EXPECT_EQ(duration->Count(), static_cast<size_t>(numQueries));
 
@@ -262,7 +272,7 @@ TEST(QueryMetricsIntegration, DurationValuesAreRealistic) {
     ).ExtractValueSync();
     ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
 
-    auto duration = GetDuration(registry, "ExecuteQuery");
+    auto duration = GetDuration(registry, "ExecuteQuery", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr);
     ASSERT_GE(duration->Count(), 1u);
 

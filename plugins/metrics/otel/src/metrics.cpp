@@ -81,24 +81,37 @@ public:
         , Meter_(MeterProvider_->GetMeter("ydb-cpp-sdk", GetSdkSemver()))
     {}
 
-    std::shared_ptr<ICounter> Counter(const std::string& name, const TLabels& labels) override {
-        auto counter = Meter_->CreateUInt64Counter(name);
+    std::shared_ptr<ICounter> Counter(const std::string& name
+        , const TLabels& labels
+        , const std::string& description
+        , const std::string& unit
+    ) override {
+        auto counter = Meter_->CreateUInt64Counter(name, description, unit);
         return std::make_shared<TOtelCounter>(std::move(counter), labels);
     }
 
-    std::shared_ptr<IGauge> Gauge(const std::string& name, const TLabels& labels) override {
-        auto counter = Meter_->CreateDoubleUpDownCounter(name);
+    std::shared_ptr<IGauge> Gauge(const std::string& name
+        , const TLabels& labels
+        , const std::string& description
+        , const std::string& unit
+    ) override {
+        auto counter = Meter_->CreateDoubleUpDownCounter(name, description, unit);
         return std::make_shared<TOtelUpDownCounterGauge>(std::move(counter), labels);
     }
 
-    std::shared_ptr<IHistogram> Histogram(const std::string& name, const std::vector<double>& buckets, const TLabels& labels) override {
-        ConfigureHistogramBuckets(name, buckets);
-        auto histogram = Meter_->CreateDoubleHistogram(name);
+    std::shared_ptr<IHistogram> Histogram(const std::string& name
+        , const std::vector<double>& buckets
+        , const TLabels& labels
+        , const std::string& description
+        , const std::string& unit
+    ) override {
+        ConfigureHistogramBuckets(name, unit, buckets);
+        auto histogram = Meter_->CreateDoubleHistogram(name, description, unit);
         return std::make_shared<TOtelHistogram>(std::move(histogram), labels);
     }
 
 private:
-    void ConfigureHistogramBuckets(const std::string& name, const std::vector<double>& buckets) {
+    void ConfigureHistogramBuckets(const std::string& name, const std::string& unit, const std::vector<double>& buckets) {
         if (buckets.empty()) {
             return;
         }
@@ -118,7 +131,7 @@ private:
         auto selector = std::make_unique<sdk::metrics::InstrumentSelector>(
             sdk::metrics::InstrumentType::kHistogram,
             name,
-            ""
+            unit
         );
         auto meterSelector = std::make_unique<sdk::metrics::MeterSelector>(
             "ydb-cpp-sdk",
