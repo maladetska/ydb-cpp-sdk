@@ -22,6 +22,12 @@ TTableClient::TImpl::TImpl(std::shared_ptr<TGRpcConnectionsImpl>&& connections, 
     , Settings_(settings)
     , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
 {
+    MetricRegistry_ = Connections_->GetExternalMetricRegistry();
+
+    if (auto traceProvider = Connections_->GetTraceProvider()) {
+        Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-table");
+    }
+
     if (!DbDriverState_->StatCollector.IsCollecting()) {
         return;
     }
@@ -378,8 +384,10 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
 
     auto createSessionPromise = NewPromise<TCreateSessionResult>();
     auto self = shared_from_this();
+    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "CreateSession");
+    auto span = std::make_shared<TTableSpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint);
 
-    auto createSessionExtractor = [createSessionPromise, self, standalone]
+    auto createSessionExtractor = [createSessionPromise, self, standalone, metrics, span]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
             Ydb::Table::CreateSessionResult result;
             if (any) {
@@ -392,10 +400,11 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
                 }
                 self->DbDriverState_->StatCollector.IncSessionsOnHost(status.Endpoint);
             } else {
-                // We do not use SessionStatusInterception for CreateSession request
                 session.SessionImpl_->MarkBroken();
             }
             TCreateSessionResult val(TStatus(std::move(status)), std::move(session));
+            metrics->End(val.GetStatus());
+            span->End(val.GetStatus());
             createSessionPromise.SetValue(std::move(val));
         };
 
@@ -759,11 +768,21 @@ TAsyncStatus TTableClient::TImpl::ExecuteSchemeQuery(const TSession& session, co
     request.set_session_id(TStringType{session.GetId()});
     request.set_yql_text(TStringType{query});
 
-    return RunSimple<Ydb::Table::V1::TableService, Ydb::Table::ExecuteSchemeQueryRequest, Ydb::Table::ExecuteSchemeQueryResponse>(
+    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "ExecuteSchemeQuery");
+    auto span = std::make_shared<TTableSpan>(Tracer_, "ExecuteSchemeQuery", DbDriverState_->DiscoveryEndpoint);
+
+    auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::ExecuteSchemeQueryRequest, Ydb::Table::ExecuteSchemeQueryResponse>(
         std::move(request),
         &Ydb::Table::V1::TableService::Stub::AsyncExecuteSchemeQuery,
         rpcSettings
     );
+
+    return future.Apply([metrics, span](NThreading::TFuture<TStatus> f) mutable {
+        auto status = f.ExtractValue();
+        metrics->End(status.GetStatus());
+        span->End(status.GetStatus());
+        return status;
+    });
 }
 
 TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSession& session, const TTxSettings& txSettings,
@@ -777,8 +796,9 @@ TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSessio
     SetTxSettings(txSettings, request.mutable_tx_settings());
 
     auto promise = NewPromise<TBeginTransactionResult>();
+    auto span = std::make_shared<TTableSpan>(Tracer_, "BeginTransaction", DbDriverState_->DiscoveryEndpoint);
 
-    auto extractor = [promise, session]
+    auto extractor = [promise, session, span]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
             std::string txId;
             if (any) {
@@ -789,6 +809,7 @@ TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSessio
 
             TBeginTransactionResult beginTxResult(TStatus(std::move(status)),
                 TTransaction(session, txId));
+            span->End(beginTxResult.GetStatus());
             promise.SetValue(std::move(beginTxResult));
         };
 
@@ -816,8 +837,10 @@ TAsyncCommitTransactionResult TTableClient::TImpl::CommitTransaction(const TSess
     request.set_collect_stats(GetStatsCollectionMode(settings.CollectQueryStats_));
 
     auto promise = NewPromise<TCommitTransactionResult>();
+    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "Commit");
+    auto span = std::make_shared<TTableSpan>(Tracer_, "Commit", DbDriverState_->DiscoveryEndpoint);
 
-    auto extractor = [promise]
+    auto extractor = [promise, metrics, span]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
             std::optional<TQueryStats> queryStats;
             if (any) {
@@ -830,6 +853,8 @@ TAsyncCommitTransactionResult TTableClient::TImpl::CommitTransaction(const TSess
             }
 
             TCommitTransactionResult commitTxResult(TStatus(std::move(status)), queryStats);
+            metrics->End(commitTxResult.GetStatus());
+            span->End(commitTxResult.GetStatus());
             promise.SetValue(std::move(commitTxResult));
         };
 
@@ -855,11 +880,21 @@ TAsyncStatus TTableClient::TImpl::RollbackTransaction(const TSession& session, c
     request.set_session_id(TStringType{session.GetId()});
     request.set_tx_id(TStringType{txId});
 
-    return RunSimple<Ydb::Table::V1::TableService, Ydb::Table::RollbackTransactionRequest, Ydb::Table::RollbackTransactionResponse>(
+    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "Rollback");
+    auto span = std::make_shared<TTableSpan>(Tracer_, "Rollback", DbDriverState_->DiscoveryEndpoint);
+
+    auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::RollbackTransactionRequest, Ydb::Table::RollbackTransactionResponse>(
         std::move(request),
         &Ydb::Table::V1::TableService::Stub::AsyncRollbackTransaction,
         rpcSettings
     );
+
+    return future.Apply([metrics, span](NThreading::TFuture<TStatus> f) mutable {
+        auto status = f.ExtractValue();
+        metrics->End(status.GetStatus());
+        span->End(status.GetStatus());
+        return status;
+    });
 }
 
 TAsyncExplainDataQueryResult TTableClient::TImpl::ExplainDataQuery(const TSession& session, const std::string& query,

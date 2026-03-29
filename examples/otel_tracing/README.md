@@ -1,6 +1,6 @@
-# YDB C++ SDK — OpenTelemetry Tracing Demo
+# YDB C++ SDK — OpenTelemetry Demo
 
-Демонстрация трассировки операций QueryService (CreateSession, ExecuteQuery, Commit, Rollback)
+Демонстрация трассировки и метрик операций QueryService и TableService
 с визуализацией в **Grafana**, **Jaeger** и **Prometheus**.
 
 ## Архитектура
@@ -73,32 +73,32 @@ cmake --build . --target otel_tracing_example -j$(nproc)
 |-----------|------------------------------|---------------------------------|
 | Grafana   | http://localhost:3000         | Дашборд "YDB QueryService"     |
 | Jaeger    | http://localhost:16686        | Поиск трейсов по сервису        |
-| Prometheus| http://localhost:9090         | Метрики `ydb_query_*`      |
+| Prometheus| http://localhost:9090         | Метрики `db_client_operation_*` |
 
 **Grafana**: логин `admin` / пароль `admin`.
 
 ### 5. Что смотреть
 
 #### В Grafana (дашборд "YDB QueryService"):
-- **Request Rate by Operation** — RPS по операциям (ExecuteQuery, CreateSession, Commit, Rollback)
+- **Request Rate by Operation** — RPS по операциям (ExecuteQuery, ExecuteDataQuery, CreateSession, Commit, Rollback)
 - **Error Rate by Operation** — частота ошибок
-- **Latency p50/p95/p99** — распределение задержек
+- **Duration p50/p95/p99** — распределение длительности операций
 - **Error Ratio** — процент ошибок
 - **Recent Traces** — таблица трейсов из Jaeger
 
 #### В Jaeger UI:
 - Выберите сервис `ydb-cpp-sdk-demo`
-- Каждый спан содержит атрибуты:
-  - `db.system.name` = `ydb`
+- Трейсы от QueryService содержат спаны с атрибутами:
+  - `db.system.name` = `other_sql`
   - `server.address`, `server.port`
-  - `network.peer.address`, `network.peer.port`
   - `db.query.text` (для ExecuteQuery)
   - `db.response.status_code`, `error.type` (при ошибках)
+- TableService пока генерирует только метрики (без спанов)
 
 #### В Prometheus:
-- `ydb_query_requests_total` — счётчик запросов
-- `ydb_query_errors_total` — счётчик ошибок
-- `ydb_query_latency_ms_bucket` — гистограмма задержек
+- `db_client_operation_requests_total` — счётчик запросов по операциям
+- `db_client_operation_errors_total` — счётчик ошибок по операциям
+- `db_client_operation_duration_seconds_bucket` — гистограмма длительности (OTel Semantic Conventions)
 
 ### 6. Остановить
 

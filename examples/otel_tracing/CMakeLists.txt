@@ -4,6 +4,7 @@ target_link_libraries(otel_tracing_example PUBLIC
   yutil
   getopt
   YDB-CPP-SDK::Query
+  YDB-CPP-SDK::Table
   YDB-CPP-SDK::Params
   YDB-CPP-SDK::Driver
   YDB-CPP-SDK::OpenTelemetryTrace

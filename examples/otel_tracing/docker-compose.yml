@@ -10,6 +10,7 @@ services:
       - GRPC_PORT=2136
       - MON_PORT=8765
       - YDB_DEFAULT_LOG_LEVEL=NOTICE
+      - YDB_USE_IN_MEMORY_PDISKS=true
     volumes:
       - ydb-data:/ydb_data
     healthcheck:

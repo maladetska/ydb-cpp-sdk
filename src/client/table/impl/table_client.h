@@ -18,6 +18,9 @@
 #include "request_migrator.h"
 #include "readers.h"
 
+#include "table_metrics.h"
+#include "table_spans.h"
+
 #include <library/cpp/threading/future/core/coroutine_traits.h>
 
 
@@ -237,16 +240,11 @@ private:
         auto promise = NewPromise<TDataQueryResult>();
         bool keepInCache = settings.KeepInQueryCache_ && settings.KeepInQueryCache_.value();
 
-        // We don't want to delay call of TSession dtor, so we can't capture it by copy
-        // otherwise we break session pool and other clients logic.
-        // Same problem with TDataQuery and TTransaction
-        //
-        // The fast solution is:
-        // - create copy of TSession out of lambda
-        // - capture pointer
-        // - call free just before SetValue call
+        auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "ExecuteDataQuery");
+        auto span = std::make_shared<TTableSpan>(Tracer_, "ExecuteDataQuery", DbDriverState_->DiscoveryEndpoint);
+
         auto sessionPtr = new TSession(session);
-        auto extractor = [promise, sessionPtr, query, fromCache, keepInCache]
+        auto extractor = [promise, sessionPtr, query, fromCache, keepInCache, metrics, span]
             (google::protobuf::Any* any, TPlainStatus status) mutable {
                 std::vector<TResultSet> res;
                 std::optional<TTransaction> tx;
@@ -284,6 +282,9 @@ private:
 
                 TDataQueryResult dataQueryResult(TStatus(std::move(status)),
                     std::move(res), tx, dataQuery, fromCache, queryStats);
+
+                metrics->End(dataQueryResult.GetStatus());
+                span->End(dataQueryResult.GetStatus());
 
                 delete sessionPtr;
                 tx.reset();
@@ -325,6 +326,9 @@ public:
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> QuerySizeHistogram;
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> ParamsSizeHistogram;
     NSdkStats::TAtomicCounter<::NMonitoring::TRate> SessionRemovedDueBalancing;
+
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
+    std::shared_ptr<NMetrics::ITracer> Tracer_;
 
 private:
     NSessionPool::TSessionPool SessionPool_;

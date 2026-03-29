@@ -1,6 +1,7 @@
 #include <ydb-cpp-sdk/client/driver/driver.h>
 #include <ydb-cpp-sdk/client/query/client.h>
 #include <ydb-cpp-sdk/client/query/tx.h>
+#include <ydb-cpp-sdk/client/table/table.h>
 #include <ydb-cpp-sdk/client/retry/retry.h>
 
 #include <ydb-cpp-sdk/open_telemetry/trace.h>
@@ -19,6 +20,9 @@
 
 #include <library/cpp/getopt/last_getopt.h>
 
+#include <opentelemetry/trace/provider.h>
+#include <opentelemetry/trace/scope.h>
+
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -30,11 +34,10 @@ namespace otlp = opentelemetry::exporter::otlp;
 namespace resource = opentelemetry::sdk::resource;
 
 using namespace NYdb;
-using namespace NYdb::NQuery;
 using namespace NYdb::NStatusHelpers;
 
 struct TConfig {
-    std::string Endpoint = "grpc://localhost:2136";
+    std::string Endpoint = "localhost:2136";
     std::string Database = "/local";
     std::string OtlpEndpoint = "http://localhost:4328";
     int Iterations = 20;
@@ -82,37 +85,54 @@ nostd::shared_ptr<opentelemetry::metrics::MeterProvider> InitMetrics(const TConf
     return nostd::shared_ptr<opentelemetry::metrics::MeterProvider>(provider);
 }
 
-void RunWorkload(TQueryClient& client, int iterations) {
-    std::cout << "=== Creating table ===" << std::endl;
+nostd::shared_ptr<opentelemetry::trace::Tracer> GetAppTracer() {
+    return opentelemetry::trace::Provider::GetTracerProvider()->GetTracer("ydb-demo-app", "1.0.0");
+}
 
-    ThrowOnError(client.RetryQuerySync([](TSession session) {
-        return session.ExecuteQuery(R"(
-            CREATE TABLE IF NOT EXISTS otel_demo (
-                id Uint64,
-                value Utf8,
-                PRIMARY KEY (id)
-            )
-        )", TTxControl::NoTx()).GetValueSync();
-    }));
+void RunQueryWorkload(NQuery::TQueryClient& client, int iterations) {
+    std::cout << "\n=== Query Service workload ===" << std::endl;
+
+    auto tracer = GetAppTracer();
+
+    {
+        auto ddlSpan = tracer->StartSpan("QueryService.DDL");
+        auto scope = opentelemetry::trace::Scope(ddlSpan);
+
+        ThrowOnError(client.RetryQuerySync([](NQuery::TSession session) {
+            return session.ExecuteQuery(R"(
+                CREATE TABLE IF NOT EXISTS otel_demo (
+                    id Uint64,
+                    value Utf8,
+                    PRIMARY KEY (id)
+                )
+            )", NQuery::TTxControl::NoTx()).GetValueSync();
+        }));
+
+        ddlSpan->SetStatus(opentelemetry::trace::StatusCode::kOk);
+    }
 
     for (int i = 0; i < iterations; ++i) {
-        std::cout << "--- Iteration " << (i + 1) << "/" << iterations << " ---" << std::endl;
+        auto iterSpan = tracer->StartSpan("QueryService.Iteration");
+        auto scope = opentelemetry::trace::Scope(iterSpan);
+        iterSpan->SetAttribute("iteration", static_cast<int64_t>(i + 1));
 
-        ThrowOnError(client.RetryQuerySync([i](TSession session) {
+        std::cout << "  [Query] Iteration " << (i + 1) << "/" << iterations << std::endl;
+
+        ThrowOnError(client.RetryQuerySync([i](NQuery::TSession session) {
             auto params = TParamsBuilder()
                 .AddParam("$id").Uint64(i).Build()
-                .AddParam("$val").Utf8("item_" + std::to_string(i)).Build()
+                .AddParam("$val").Utf8("query_" + std::to_string(i)).Build()
                 .Build();
 
             return session.ExecuteQuery(R"(
                 DECLARE $id AS Uint64;
                 DECLARE $val AS Utf8;
                 UPSERT INTO otel_demo (id, value) VALUES ($id, $val)
-            )", TTxControl::BeginTx(TTxSettings::SerializableRW()).CommitTx(),
+            )", NQuery::TTxControl::BeginTx(NQuery::TTxSettings::SerializableRW()).CommitTx(),
                 params).GetValueSync();
         }));
 
-        ThrowOnError(client.RetryQuerySync([i](TSession session) {
+        ThrowOnError(client.RetryQuerySync([i](NQuery::TSession session) {
             auto params = TParamsBuilder()
                 .AddParam("$id").Uint64(i).Build()
                 .Build();
@@ -120,21 +140,86 @@ void RunWorkload(TQueryClient& client, int iterations) {
             return session.ExecuteQuery(R"(
                 DECLARE $id AS Uint64;
                 SELECT id, value FROM otel_demo WHERE id = $id
-            )", TTxControl::BeginTx(TTxSettings::SerializableRW()).CommitTx(),
+            )", NQuery::TTxControl::BeginTx(NQuery::TTxSettings::SerializableRW()).CommitTx(),
                 params).GetValueSync();
         }));
 
-        ThrowOnError(client.RetryQuerySync([](TQueryClient client) -> TStatus {
-            auto session = client.GetSession().GetValueSync().GetSession();
-            auto beginResult = session.BeginTransaction(TTxSettings::SerializableRW()).GetValueSync();
+        if (i % 5 == 4) {
+            ThrowOnError(client.RetryQuerySync([](NQuery::TQueryClient client) -> TStatus {
+                auto session = client.GetSession().GetValueSync().GetSession();
+                auto beginResult = session.BeginTransaction(NQuery::TTxSettings::SerializableRW()).GetValueSync();
+                if (!beginResult.IsSuccess()) {
+                    return beginResult;
+                }
+                auto tx = beginResult.GetTransaction();
+
+                auto result = session.ExecuteQuery(R"(
+                    SELECT COUNT(*) AS cnt FROM otel_demo
+                )", NQuery::TTxControl::Tx(tx)).GetValueSync();
+
+                if (!result.IsSuccess()) {
+                    return result;
+                }
+
+                return tx.Commit().GetValueSync();
+            }));
+        }
+
+        iterSpan->SetStatus(opentelemetry::trace::StatusCode::kOk);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+}
+
+void RunTableWorkload(NTable::TTableClient& client, int iterations) {
+    std::cout << "\n=== Table Service workload ===" << std::endl;
+
+    auto tracer = GetAppTracer();
+
+    for (int i = 0; i < iterations; ++i) {
+        int id = 1000 + i;
+
+        auto iterSpan = tracer->StartSpan("TableService.Iteration");
+        auto scope = opentelemetry::trace::Scope(iterSpan);
+        iterSpan->SetAttribute("iteration", static_cast<int64_t>(i + 1));
+
+        std::cout << "  [Table] Iteration " << (i + 1) << "/" << iterations << std::endl;
+
+        ThrowOnError(client.RetryOperationSync([id](NTable::TSession session) {
+            auto params = session.GetParamsBuilder()
+                .AddParam("$id").Uint64(id).Build()
+                .AddParam("$val").Utf8("table_" + std::to_string(id)).Build()
+                .Build();
+
+            return session.ExecuteDataQuery(R"(
+                DECLARE $id AS Uint64;
+                DECLARE $val AS Utf8;
+                UPSERT INTO otel_demo (id, value) VALUES ($id, $val)
+            )", NTable::TTxControl::BeginTx(NTable::TTxSettings::SerializableRW()).CommitTx(),
+                std::move(params)).GetValueSync();
+        }));
+
+        ThrowOnError(client.RetryOperationSync([id](NTable::TSession session) {
+            auto params = session.GetParamsBuilder()
+                .AddParam("$id").Uint64(id).Build()
+                .Build();
+
+            return session.ExecuteDataQuery(R"(
+                DECLARE $id AS Uint64;
+                SELECT id, value FROM otel_demo WHERE id = $id
+            )", NTable::TTxControl::BeginTx(NTable::TTxSettings::SerializableRW()).CommitTx(),
+                std::move(params)).GetValueSync();
+        }));
+
+        ThrowOnError(client.RetryOperationSync([](NTable::TSession session) -> TStatus {
+            auto beginResult = session.BeginTransaction(NTable::TTxSettings::SerializableRW()).GetValueSync();
             if (!beginResult.IsSuccess()) {
                 return beginResult;
             }
             auto tx = beginResult.GetTransaction();
 
-            auto result = session.ExecuteQuery(R"(
+            auto result = session.ExecuteDataQuery(R"(
                 SELECT COUNT(*) AS cnt FROM otel_demo
-            )", TTxControl::Tx(tx)).GetValueSync();
+            )", NTable::TTxControl::Tx(tx)).GetValueSync();
 
             if (!result.IsSuccess()) {
                 return result;
@@ -144,9 +229,8 @@ void RunWorkload(TQueryClient& client, int iterations) {
         }));
 
         if (i % 5 == 4) {
-            auto rollbackResult = client.RetryQuerySync([](TQueryClient client) -> TStatus {
-                auto session = client.GetSession().GetValueSync().GetSession();
-                auto beginResult = session.BeginTransaction(TTxSettings::SerializableRW()).GetValueSync();
+            auto rollbackResult = client.RetryOperationSync([](NTable::TSession session) -> TStatus {
+                auto beginResult = session.BeginTransaction(NTable::TTxSettings::SerializableRW()).GetValueSync();
                 if (!beginResult.IsSuccess()) {
                     return beginResult;
                 }
@@ -158,15 +242,9 @@ void RunWorkload(TQueryClient& client, int iterations) {
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        iterSpan->SetStatus(opentelemetry::trace::StatusCode::kOk);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
-
-    std::cout << "=== Dropping table ===" << std::endl;
-
-    ThrowOnError(client.RetryQuerySync([](TSession session) {
-        return session.ExecuteQuery(
-            "DROP TABLE otel_demo", TTxControl::NoTx()).GetValueSync();
-    }));
 }
 
 int main(int argc, char** argv) {
@@ -203,10 +281,18 @@ int main(int argc, char** argv) {
         .SetMetricRegistry(ydbMetricRegistry);
 
     TDriver driver(driverConfig);
-    TQueryClient client(driver);
+    NQuery::TQueryClient queryClient(driver);
+    NTable::TTableClient tableClient(driver);
 
     try {
-        RunWorkload(client, cfg.Iterations);
+        RunQueryWorkload(queryClient, cfg.Iterations);
+        RunTableWorkload(tableClient, cfg.Iterations);
+
+        std::cout << "\n=== Cleanup ===" << std::endl;
+        ThrowOnError(queryClient.RetryQuerySync([](NQuery::TSession session) {
+            return session.ExecuteQuery(
+                "DROP TABLE otel_demo", NQuery::TTxControl::NoTx()).GetValueSync();
+        }));
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
@@ -225,8 +311,8 @@ int main(int argc, char** argv) {
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
     std::cout << "Done. Open Grafana at http://localhost:3000" << std::endl;
-    std::cout << "  Dashboard: YDB QueryService" << std::endl;
-    std::cout << "  Also: Jaeger UI at http://localhost:16686" << std::endl;
+    std::cout << "  Jaeger UI at http://localhost:16686" << std::endl;
+    std::cout << "  Prometheus at http://localhost:9090" << std::endl;
 
     return 0;
 }

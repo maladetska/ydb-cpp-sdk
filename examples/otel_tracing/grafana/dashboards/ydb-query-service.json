@@ -18,8 +18,8 @@
       },
       "targets": [
         {
-          "expr": "rate(ydb_query_requests_total[1m])",
-          "legendFormat": "{{operation}}"
+          "expr": "rate(db_client_operation_requests_total[1m])",
+          "legendFormat": "{{db_operation_name}}"
         }
       ]
     },
@@ -37,34 +37,34 @@
       },
       "targets": [
         {
-          "expr": "rate(ydb_query_errors_total[1m])",
-          "legendFormat": "{{operation}}"
+          "expr": "rate(db_client_operation_errors_total[1m])",
+          "legendFormat": "{{db_operation_name}}"
         }
       ]
     },
     {
-      "title": "Latency p50 / p95 / p99 (ms)",
+      "title": "Duration p50 / p95 / p99 (s)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "${prometheus_ds}" },
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "s",
           "custom": { "drawStyle": "line", "fillOpacity": 5 }
         }
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(ydb_query_latency_ms_bucket[1m]))",
-          "legendFormat": "p50 {{operation}}"
+          "expr": "histogram_quantile(0.50, rate(db_client_operation_duration_seconds_bucket[1m]))",
+          "legendFormat": "p50 {{db_operation_name}}"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(ydb_query_latency_ms_bucket[1m]))",
-          "legendFormat": "p95 {{operation}}"
+          "expr": "histogram_quantile(0.95, rate(db_client_operation_duration_seconds_bucket[1m]))",
+          "legendFormat": "p95 {{db_operation_name}}"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(ydb_query_latency_ms_bucket[1m]))",
-          "legendFormat": "p99 {{operation}}"
+          "expr": "histogram_quantile(0.99, rate(db_client_operation_duration_seconds_bucket[1m]))",
+          "legendFormat": "p99 {{db_operation_name}}"
         }
       ]
     },
@@ -87,8 +87,8 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ydb_query_errors_total[5m])) by (operation) / sum(rate(ydb_query_requests_total[5m])) by (operation)",
-          "legendFormat": "{{operation}}"
+          "expr": "sum(rate(db_client_operation_errors_total[5m])) by (db_operation_name) / sum(rate(db_client_operation_requests_total[5m])) by (db_operation_name)",
+          "legendFormat": "{{db_operation_name}}"
         }
       ]
     },
