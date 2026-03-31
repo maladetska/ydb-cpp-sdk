@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace NYdb::inline V3::NMetrics {
+namespace NYdb::inline V3::NTrace {
 
 enum class ESpanKind {
     INTERNAL,
@@ -36,4 +36,4 @@ public:
     virtual std::shared_ptr<ITracer> GetTracer(const std::string& name) = 0;
 };
 
-} // namespace NYdb::NMetrics
+} // namespace NYdb::NTrace

@@ -239,10 +239,10 @@ private:
         auto promise = NewPromise<TDataQueryResult>();
         bool keepInCache = settings.KeepInQueryCache_ && settings.KeepInQueryCache_.value();
 
-        auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "ExecuteDataQuery");
+        auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "ExecuteDataQuery", DbDriverState_->Log);
         auto span = std::make_shared<TTableSpan>(Tracer_, "ExecuteDataQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
-        
+
         // We don't want to delay call of TSession dtor, so we can't capture it by copy
         // otherwise we break session pool and other clients logic.
         // Same problem with TDataQuery and TTransaction
@@ -335,10 +335,9 @@ public:
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> ParamsSizeHistogram;
     NSdkStats::TAtomicCounter<::NMonitoring::TRate> SessionRemovedDueBalancing;
 
-    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
-    std::shared_ptr<NMetrics::ITracer> Tracer_;
-
 private:
+    std::shared_ptr<NTrace::ITracer> Tracer_;
+    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
     NSessionPool::TSessionPool SessionPool_;
     TRequestMigrator RequestMigrator_;
     static const TKeepAliveSettings KeepAliveSettings;

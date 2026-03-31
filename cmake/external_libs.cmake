@@ -15,10 +15,7 @@ find_package(jwt-cpp REQUIRED)
 find_package(double-conversion REQUIRED)
 
 if (YDB_SDK_ENABLE_OTEL_METRICS OR YDB_SDK_ENABLE_OTEL_TRACE)
-  find_package(opentelemetry-cpp QUIET)
-  if (NOT opentelemetry-cpp_FOUND)
-    message(FATAL_ERROR "Dependency 'opentelemetry-cpp' was not found.")
-  endif()
+  find_package(opentelemetry-cpp REQUIRED)
 endif()
 
 # RapidJSON

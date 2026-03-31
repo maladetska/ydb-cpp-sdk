@@ -8,9 +8,9 @@ namespace opentelemetry::trace {
 class TracerProvider;
 }
 
-namespace NYdb::inline V3::NMetrics {
+namespace NYdb::inline V3::NTrace {
 
 std::shared_ptr<ITraceProvider> CreateOtelTraceProvider(
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider> tracerProvider);
 
-} // namespace NYdb::NMetrics
+} // namespace NYdb::NTrace

@@ -1,20 +1,25 @@
-#include "client_metrics.h"
+#include "operation_metrics.h"
+
+#include <src/client/topic/common/log_lazy.h>
+
+#include <util/string/cast.h>
 
 #include <exception>
-#include <util/string/cast.h>
 
 namespace NYdb::inline V3::NObservability {
 
 namespace {
 
-void SafeLogMetricsError(const char* /*message*/) noexcept {
+void SafeLogMetricsError(TLog& log, const char* message) noexcept {
     try {
         try {
             std::rethrow_exception(std::current_exception());
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            LOG_LAZY(log, TLOG_ERR, std::string("TOperationMetrics: ") + message + ": " + e.what());
             return;
         } catch (...) {
         }
+        LOG_LAZY(log, TLOG_ERR, std::string("TOperationMetrics: ") + message + ": (unknown)");
     } catch (...) {
     }
 }
@@ -29,10 +34,12 @@ static constexpr const char* RequestsDescription = "Number of database client op
 static constexpr const char* ErrorsDescription = "Number of database client operations that failed.";
 static constexpr const char* DurationDescription = "Duration of database client operations.";
 
-TClientMetrics::TClientMetrics(std::shared_ptr<NMetrics::IMetricRegistry> registry
+TOperationMetrics::TOperationMetrics(std::shared_ptr<NMetrics::IMetricRegistry> registry
     , const std::string& operationName
+    , const TLog& log
 ) : Registry_(std::move(registry))
     , OperationName_(operationName)
+    , Log_(log)
 {
     if (!Registry_) {
         return;
@@ -49,18 +56,18 @@ TClientMetrics::TClientMetrics(std::shared_ptr<NMetrics::IMetricRegistry> regist
         RequestCounter_->Inc();
         StartTime_ = std::chrono::steady_clock::now();
     } catch (...) {
-        SafeLogMetricsError("failed to initialize metrics");
+        SafeLogMetricsError(Log_, "failed to initialize metrics");
         RequestCounter_.reset();
         ErrorCounter_.reset();
         Registry_.reset();
     }
 }
 
-TClientMetrics::~TClientMetrics() noexcept {
+TOperationMetrics::~TOperationMetrics() noexcept {
     End(EStatus::CLIENT_INTERNAL_ERROR);
 }
 
-void TClientMetrics::End(EStatus status) noexcept {
+void TOperationMetrics::End(EStatus status) noexcept {
     if (Ended_) {
         return;
     }
@@ -94,7 +101,7 @@ void TClientMetrics::End(EStatus status) noexcept {
             ErrorCounter_->Inc();
         }
     } catch (...) {
-        SafeLogMetricsError("failed to record metrics");
+        SafeLogMetricsError(Log_, "failed to record metrics");
     }
 }
 

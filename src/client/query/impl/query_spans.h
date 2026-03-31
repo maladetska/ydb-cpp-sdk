@@ -1,35 +1,17 @@
 #pragma once
 
-#include <ydb-cpp-sdk/client/trace/trace.h>
-#include <ydb-cpp-sdk/client/types/status_codes.h>
-#include <ydb-cpp-sdk/client/types/status/status.h>
-
-#include <library/cpp/logger/log.h>
-
-#include <map>
-#include <memory>
-#include <string>
+#include <src/client/impl/observability/operation_span.h>
 
 namespace NYdb::inline V3::NQuery {
 
-class TQuerySpan {
+class TQuerySpan : public NObservability::TOperationSpan {
 public:
-    TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer
+    TQuerySpan(std::shared_ptr<NTrace::ITracer> tracer
         , const std::string& operationName
         , const std::string& endpoint
         , const TLog& log
-    );
-    ~TQuerySpan() noexcept;
-
-    void SetPeerEndpoint(const std::string& endpoint) noexcept;
-    void SetQueryText(const std::string& query) noexcept;
-    void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
-
-    void End(EStatus status) noexcept;
-
-private:
-    TLog Log_;
-    std::shared_ptr<NMetrics::ISpan> Span_;
+    ) : TOperationSpan(std::move(tracer), operationName, endpoint, log)
+    {}
 };
 
 } // namespace NYdb::NQuery

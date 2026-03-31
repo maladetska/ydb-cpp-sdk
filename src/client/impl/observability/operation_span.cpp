@@ -1,4 +1,4 @@
-#include "query_spans.h"
+#include "operation_span.h"
 
 #include <src/client/topic/common/log_lazy.h>
 
@@ -6,7 +6,7 @@
 
 #include <exception>
 
-namespace NYdb::inline V3::NQuery {
+namespace NYdb::inline V3::NObservability {
 
 namespace {
 
@@ -49,21 +49,22 @@ void SafeLogSpanError(TLog& log, const char* message) noexcept {
         try {
             std::rethrow_exception(std::current_exception());
         } catch (const std::exception& e) {
-            LOG_LAZY(log, TLOG_ERR, std::string("TQuerySpan: ") + message + ": " + e.what());
+            LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": " + e.what());
             return;
         } catch (...) {
         }
-        LOG_LAZY(log, TLOG_ERR, std::string("TQuerySpan: ") + message + ": (unknown)");
+        LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": (unknown)");
     } catch (...) {
     }
 }
 
 } // namespace
 
-TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::string& operationName,
-    const std::string& endpoint, const TLog& log)
-    : Log_(log)
-{
+TOperationSpan::TOperationSpan(std::shared_ptr<NTrace::ITracer> tracer
+    , const std::string& operationName
+    , const std::string& endpoint
+    , const TLog& log
+) : Log_(log) {
     if (!tracer) {
         return;
     }
@@ -73,7 +74,7 @@ TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::str
     ParseEndpoint(endpoint, host, port);
 
     try {
-        Span_ = tracer->StartSpan(operationName, NMetrics::ESpanKind::CLIENT);
+        Span_ = tracer->StartSpan(operationName, NTrace::ESpanKind::CLIENT);
         if (!Span_) {
             return;
         }
@@ -87,7 +88,7 @@ TQuerySpan::TQuerySpan(std::shared_ptr<NMetrics::ITracer> tracer, const std::str
     }
 }
 
-TQuerySpan::~TQuerySpan() noexcept {
+TOperationSpan::~TOperationSpan() noexcept {
     if (Span_) {
         try {
             Span_->End();
@@ -97,7 +98,7 @@ TQuerySpan::~TQuerySpan() noexcept {
     }
 }
 
-void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
+void TOperationSpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     if (!Span_ || endpoint.empty()) {
         return;
     }
@@ -112,18 +113,7 @@ void TQuerySpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     }
 }
 
-void TQuerySpan::SetQueryText(const std::string& query) noexcept {
-    if (!Span_ || query.empty()) {
-        return;
-    }
-    try {
-        Span_->SetAttribute("db.query.text", query);
-    } catch (...) {
-        SafeLogSpanError(Log_, "failed to set query text");
-    }
-}
-
-void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
+void TOperationSpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
     if (!Span_) {
         return;
     }
@@ -134,10 +124,10 @@ void TQuerySpan::AddEvent(const std::string& name, const std::map<std::string, s
     }
 }
 
-void TQuerySpan::End(EStatus status) noexcept {
+void TOperationSpan::End(EStatus status) noexcept {
     if (Span_) {
         try {
-            Span_->SetAttribute("db.response.status_code", ToString(status));
+            Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
             if (status != EStatus::SUCCESS) {
                 Span_->SetAttribute("error.type", ToString(status));
             }
@@ -149,4 +139,4 @@ void TQuerySpan::End(EStatus status) noexcept {
     }
 }
 
-} // namespace NYdb::NQuery
+} // namespace NYdb::NObservability

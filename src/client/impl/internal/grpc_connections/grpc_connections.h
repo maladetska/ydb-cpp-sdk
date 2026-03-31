@@ -20,8 +20,11 @@ namespace NYdb::inline V3 {
 
 namespace NMetrics {
     class IMetricRegistry;
-    class ITraceProvider;
 } // namespace NMetrics
+
+namespace NTrace {
+    class ITraceProvider;
+} // namespace NTrace
 
 constexpr TDeadline::Duration GRPC_KEEP_ALIVE_TIMEOUT_FOR_DISCOVERY = std::chrono::seconds(10);
 constexpr TDeadline::Duration INITIAL_DEFERRED_CALL_DELAY = std::chrono::milliseconds(10); // The delay before first deferred service call
@@ -587,7 +590,7 @@ public:
     void RegisterExtension(IExtension* extension);
     void RegisterExtensionApi(IExtensionApi* api);
     std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const;
-    std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const;
+    std::shared_ptr<NTrace::ITraceProvider> GetTraceProvider() const;
 
     void SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb);
     const TLog& GetLog() const override;
@@ -723,7 +726,7 @@ private:
     std::vector<std::unique_ptr<IExtension>> Extensions_;
     std::vector<std::unique_ptr<IExtensionApi>> ExtensionApis_;
     std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
-    std::shared_ptr<NMetrics::ITraceProvider> TraceProvider_;
+    std::shared_ptr<NTrace::ITraceProvider> TraceProvider_;
 
     IDiscoveryMutatorApi::TMutatorCb DiscoveryMutatorCb;
 
