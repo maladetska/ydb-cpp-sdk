@@ -3,6 +3,7 @@ _ydb_sdk_add_library(impl-observability)
 target_link_libraries(impl-observability PUBLIC
   yutil
   client-metrics
+  client-impl-ydb_stats
 )
 
 target_sources(impl-observability PRIVATE

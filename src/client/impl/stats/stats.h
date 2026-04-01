@@ -1,13 +1,16 @@
 #pragma once
 
 #include <ydb-cpp-sdk/client/types/status_codes.h>
+#include <ydb-cpp-sdk/client/metrics/metrics.h>
 
 #include <src/library/grpc/client/grpc_client_low.h>
 #include <library/cpp/monlib/metrics/metric_registry.h>
 #include <library/cpp/monlib/metrics/histogram_collector.h>
 
 #include <atomic>
+#include <chrono>
 #include <memory>
+#include <vector>
 
 namespace NYdb::inline V3 {
 namespace NSdkStats {
@@ -226,6 +229,101 @@ public:
         std::string ClientType_;
     };
 
+    struct TClientOperationStatCollector {
+        TClientOperationStatCollector()
+            : MetricRegistry_()
+        {}
+
+        TClientOperationStatCollector(::NMonitoring::TMetricRegistry* registry,
+                                      const std::string& database,
+                                      const std::string& clientType)
+            : MetricRegistry_(registry)
+            , Database_(database)
+            , ClientType_(clientType)
+        {}
+
+        void SetExternalRegistry(const std::shared_ptr<NMetrics::IMetricRegistry>& externalRegistry) {
+            ExternalRegistry_ = externalRegistry;
+        }
+
+        void IncRequestCount(const std::string& operationName) {
+            if (auto registry = MetricRegistry_.Get()) {
+                registry->Rate({
+                    {"database", Database_},
+                    {"ydb_client", ClientType_},
+                    {"operation", operationName},
+                    {"sensor", "Request/Operations"}
+                })->Inc();
+            }
+            if (ExternalRegistry_) {
+                ExternalRegistry_->Counter(
+                    "db.client.operation.requests",
+                    {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
+                    "Number of database client operations started.",
+                    "{operation}"
+                )->Inc();
+            }
+        }
+
+        void IncErrorCount(const std::string& operationName, EStatus status) {
+            if (status == EStatus::SUCCESS) {
+                return;
+            }
+            if (auto registry = MetricRegistry_.Get()) {
+                registry->Rate({
+                    {"database", Database_},
+                    {"ydb_client", ClientType_},
+                    {"operation", operationName},
+                    {"status", TStringBuilder() << status},
+                    {"sensor", "Request/OperationErrors"}
+                })->Inc();
+            }
+            if (ExternalRegistry_) {
+                ExternalRegistry_->Counter(
+                    "db.client.operation.errors",
+                    {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
+                    "Number of database client operations that failed.",
+                    "{error}"
+                )->Inc();
+            }
+        }
+
+        void RecordLatency(const std::string& operationName, double durationSeconds, EStatus status) {
+            if (auto registry = MetricRegistry_.Get()) {
+                registry->HistogramRate({
+                    {"database", Database_},
+                    {"ydb_client", ClientType_},
+                    {"operation", operationName},
+                    {"sensor", "Request/OperationLatencyMs"}
+                }, ::NMonitoring::ExponentialHistogram(20, 2, 1))->Record(
+                    static_cast<i64>(durationSeconds * 1000.0));
+            }
+            if (ExternalRegistry_) {
+                NMetrics::TLabels labels = {
+                    {"db.system.name", "other_sql"},
+                    {"db.operation.name", operationName},
+                    {"db.response.status_code", TStringBuilder() << status},
+                };
+                if (status != EStatus::SUCCESS) {
+                    labels["error.type"] = TStringBuilder() << status;
+                }
+                ExternalRegistry_->Histogram(
+                    "db.client.operation.duration",
+                    {0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10},
+                    labels,
+                    "Duration of database client operations.",
+                    "s"
+                )->Record(durationSeconds);
+            }
+        }
+
+    private:
+        TAtomicPointer<::NMonitoring::TMetricRegistry> MetricRegistry_;
+        std::shared_ptr<NMetrics::IMetricRegistry> ExternalRegistry_;
+        std::string Database_;
+        std::string ClientType_;
+    };
+
     struct TClientStatCollector {
 
         TClientStatCollector(::NMonitoring::TRate* cacheMiss = nullptr
@@ -233,13 +331,15 @@ public:
         , ::NMonitoring::THistogram* paramsSize = nullptr
         , ::NMonitoring::TRate* sessionRemoved = nullptr
         , ::NMonitoring::TRate* requestMigrated = nullptr
-        , TClientRetryOperationStatCollector retryOperationStatCollector = TClientRetryOperationStatCollector())
+        , TClientRetryOperationStatCollector retryOperationStatCollector = TClientRetryOperationStatCollector()
+        , TClientOperationStatCollector operationStatCollector = TClientOperationStatCollector())
         : CacheMiss(cacheMiss)
         , QuerySize(querySize)
         , ParamsSize(paramsSize)
         , SessionRemovedDueBalancing(sessionRemoved)
         , RequestMigrated(requestMigrated)
         , RetryOperationStatCollector(retryOperationStatCollector)
+        , OperationStatCollector(operationStatCollector)
         { }
 
         ::NMonitoring::TRate* CacheMiss;
@@ -248,6 +348,7 @@ public:
         ::NMonitoring::TRate* SessionRemovedDueBalancing;
         ::NMonitoring::TRate* RequestMigrated;
         TClientRetryOperationStatCollector RetryOperationStatCollector;
+        TClientOperationStatCollector OperationStatCollector;
     };
 
     TStatCollector(const std::string& database, TMetricRegistry* sensorsRegistry)
@@ -376,10 +477,13 @@ public:
                 {"sensor", "Request/ParamsSize"} }, ::NMonitoring::ExponentialHistogram(10, 2, 32));
 
             return TClientStatCollector(cacheMiss, querySize, paramsSize, sessionRemovedDueBalancing, requestMigrated,
-                TClientRetryOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType));
+                TClientRetryOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType),
+                TClientOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType));
         }
 
-        return TClientStatCollector();
+        return TClientStatCollector(nullptr, nullptr, nullptr, nullptr, nullptr,
+            TClientRetryOperationStatCollector(nullptr, Database_, clientType),
+            TClientOperationStatCollector(nullptr, Database_, clientType));
     }
 
     bool IsCollecting() {

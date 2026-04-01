@@ -14,8 +14,8 @@
 
 #include <ydb-cpp-sdk/library/operation_id/operation_id.h>
 #include <src/client/common_client/impl/client.h>
+#include <src/client/impl/observability/operation_metrics.h>
 #include <src/client/query/impl/exec_query.h>
-#include <src/client/query/impl/query_metrics.h>
 #include <src/client/query/impl/query_spans.h>
 #include <ydb-cpp-sdk/client/retry/retry.h>
 #include <ydb-cpp-sdk/client/trace/trace.h>
@@ -26,6 +26,7 @@
 
 namespace NYdb::inline V3::NQuery {
 
+using TQueryMetrics = NObservability::TOperationMetrics;
 using TRetryContextResultAsync = NRetry::Async::TRetryContext<TQueryClient, TAsyncExecuteQueryResult>;
 using TRetryContextAsync = NRetry::Async::TRetryContext<TQueryClient, TAsyncStatus>;
 
@@ -74,7 +75,6 @@ public:
         if (auto traceProvider = Connections_->GetTraceProvider()) {
             Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
         }
-        MetricRegistry_ = Connections_->GetExternalMetricRegistry();
     }
 
     ~TImpl() {
@@ -85,6 +85,8 @@ public:
         QuerySizeHistogram_.Set(collector.QuerySize);
         ParamsSizeHistogram_.Set(collector.ParamsSize);
         RetryOperationStatCollector_ = collector.RetryOperationStatCollector;
+        OperationStatCollector_ = collector.OperationStatCollector;
+        OperationStatCollector_.SetExternalRegistry(Connections_->GetExternalMetricRegistry());
     }
 
     TAsyncExecuteQueryIterator StreamExecuteQuery(const std::string& query, const TTxControl& txControl,
@@ -104,7 +106,7 @@ public:
         CollectParamsSize(params ? &params->GetProtoMap() : nullptr);
 
         auto span = std::make_shared<TQuerySpan>(Tracer_, "ExecuteQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "ExecuteQuery", DbDriverState_->Log);
+        auto metrics = std::make_shared<TQueryMetrics>(&OperationStatCollector_, "ExecuteQuery", DbDriverState_->Log);
 
         return TExecQueryImpl::ExecuteQuery(
             Connections_, DbDriverState_, query, txControl, params, settings, session)
@@ -188,7 +190,7 @@ public:
         auto promise = NThreading::NewPromise<TStatus>();
 
         auto span = std::make_shared<TQuerySpan>(Tracer_, "Rollback", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "Rollback", DbDriverState_->Log);
+        auto metrics = std::make_shared<TQueryMetrics>(&OperationStatCollector_, "Rollback", DbDriverState_->Log);
 
         auto responseCb = [promise, session, span, metrics]
             (Ydb::Query::RollbackTransactionResponse* response, TPlainStatus status) mutable {
@@ -240,7 +242,7 @@ public:
         auto promise = NThreading::NewPromise<TCommitTransactionResult>();
 
         auto span = std::make_shared<TQuerySpan>(Tracer_, "Commit", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "Commit", DbDriverState_->Log);
+        auto metrics = std::make_shared<TQueryMetrics>(&OperationStatCollector_, "Commit", DbDriverState_->Log);
 
         auto responseCb = [promise, session, span, metrics]
             (Ydb::Query::CommitTransactionResponse* response, TPlainStatus status) mutable {
@@ -556,7 +558,7 @@ public:
         };
 
         auto span = std::make_shared<TQuerySpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "CreateSession", DbDriverState_->Log);
+        auto metrics = std::make_shared<TQueryMetrics>(&OperationStatCollector_, "CreateSession", DbDriverState_->Log);
         auto ctx = std::make_unique<TQueryClientGetSessionCtx>(shared_from_this(), settings, span, metrics);
         auto future = ctx->GetFuture();
         SessionPool_.GetSession(std::move(ctx));
@@ -627,7 +629,7 @@ public:
 
 private:
     std::shared_ptr<NTrace::ITracer> Tracer_;
-    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
+    NSdkStats::TStatCollector::TClientOperationStatCollector OperationStatCollector_;
     NSdkStats::TStatCollector::TClientRetryOperationStatCollector RetryOperationStatCollector_;
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> QuerySizeHistogram_;
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> ParamsSizeHistogram_;

@@ -1,19 +1,18 @@
 #pragma once
 
-#include <ydb-cpp-sdk/client/metrics/metrics.h>
+#include <src/client/impl/stats/stats.h>
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 
 #include <library/cpp/logger/log.h>
 
 #include <chrono>
-#include <memory>
 #include <string>
 
 namespace NYdb::inline V3::NObservability {
 
 class TOperationMetrics {
 public:
-    TOperationMetrics(std::shared_ptr<NMetrics::IMetricRegistry> registry
+    TOperationMetrics(NSdkStats::TStatCollector::TClientOperationStatCollector* operationCollector
         , const std::string& operationName
         , const TLog& log
     );
@@ -22,11 +21,9 @@ public:
     void End(EStatus status) noexcept;
 
 private:
-    std::shared_ptr<NMetrics::IMetricRegistry> Registry_;
+    NSdkStats::TStatCollector::TClientOperationStatCollector* Collector_ = nullptr;
     std::string OperationName_;
-    std::shared_ptr<NMetrics::ICounter> RequestCounter_;
-    std::shared_ptr<NMetrics::ICounter> ErrorCounter_;
-    std::chrono::steady_clock::time_point StartTime_;
+    std::chrono::steady_clock::time_point StartTime_{};
     bool Ended_ = false;
     TLog Log_;
 };

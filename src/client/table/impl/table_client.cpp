@@ -6,6 +6,8 @@ namespace NTable {
 
 using namespace NThreading;
 
+using TTableMetrics = NObservability::TOperationMetrics;
+
 const TKeepAliveSettings TTableClient::TImpl::KeepAliveSettings = TKeepAliveSettings().ClientTimeout(KEEP_ALIVE_CLIENT_TIMEOUT);
 
 
@@ -22,7 +24,9 @@ TTableClient::TImpl::TImpl(std::shared_ptr<TGRpcConnectionsImpl>&& connections, 
     , Settings_(settings)
     , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
 {
-    MetricRegistry_ = Connections_->GetExternalMetricRegistry();
+    auto clientCollector = DbDriverState_->StatCollector.GetClientStatCollector("Table");
+    OperationStatCollector_ = clientCollector.OperationStatCollector;
+    OperationStatCollector_.SetExternalRegistry(Connections_->GetExternalMetricRegistry());
 
     if (auto traceProvider = Connections_->GetTraceProvider()) {
         Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-table");
@@ -32,7 +36,7 @@ TTableClient::TImpl::TImpl(std::shared_ptr<TGRpcConnectionsImpl>&& connections, 
         return;
     }
 
-    SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Table"));
+    SetStatCollector(clientCollector);
     SessionPool_.SetStatCollector(DbDriverState_->StatCollector.GetSessionPoolStatCollector("Table"));
 }
 
@@ -384,7 +388,7 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
 
     auto createSessionPromise = NewPromise<TCreateSessionResult>();
     auto self = shared_from_this();
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "CreateSession", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "CreateSession", DbDriverState_->Log);
     auto span = std::make_shared<TTableSpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
     auto createSessionExtractor = [createSessionPromise, self, standalone, metrics, span]
@@ -769,7 +773,7 @@ TAsyncStatus TTableClient::TImpl::ExecuteSchemeQuery(const TSession& session, co
     request.set_session_id(TStringType{session.GetId()});
     request.set_yql_text(TStringType{query});
 
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "ExecuteSchemeQuery", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "ExecuteSchemeQuery", DbDriverState_->Log);
     auto span = std::make_shared<TTableSpan>(Tracer_, "ExecuteSchemeQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
     auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::ExecuteSchemeQueryRequest, Ydb::Table::ExecuteSchemeQueryResponse>(
@@ -796,7 +800,7 @@ TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSessio
     request.set_session_id(TStringType{session.GetId()});
     SetTxSettings(txSettings, request.mutable_tx_settings());
 
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "BeginTransaction", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "BeginTransaction", DbDriverState_->Log);
     auto span = std::make_shared<TTableSpan>(Tracer_, "BeginTransaction", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
     auto promise = NewPromise<TBeginTransactionResult>();
@@ -841,7 +845,7 @@ TAsyncCommitTransactionResult TTableClient::TImpl::CommitTransaction(const TSess
     request.set_collect_stats(GetStatsCollectionMode(settings.CollectQueryStats_));
 
     auto span = std::make_shared<TTableSpan>(Tracer_, "CommitTransaction", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "CommitTransaction", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "CommitTransaction", DbDriverState_->Log);
 
     auto promise = NewPromise<TCommitTransactionResult>();
 
@@ -886,7 +890,7 @@ TAsyncStatus TTableClient::TImpl::RollbackTransaction(const TSession& session, c
     request.set_tx_id(TStringType{txId});
 
     auto span = std::make_shared<TTableSpan>(Tracer_, "RollbackTransaction", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "RollbackTransaction", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "RollbackTransaction", DbDriverState_->Log);
 
     auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::RollbackTransactionRequest, Ydb::Table::RollbackTransactionResponse>(
         std::move(request),
@@ -1140,6 +1144,8 @@ void TTableClient::TImpl::SetStatCollector(const NSdkStats::TStatCollector::TCli
     ParamsSizeHistogram.Set(collector.ParamsSize);
     RetryOperationStatCollector = collector.RetryOperationStatCollector;
     SessionRemovedDueBalancing.Set(collector.SessionRemovedDueBalancing);
+    OperationStatCollector_ = collector.OperationStatCollector;
+    OperationStatCollector_.SetExternalRegistry(Connections_->GetExternalMetricRegistry());
 }
 
 TAsyncBulkUpsertResult TTableClient::TImpl::BulkUpsert(const std::string& table, TValue&& rows, const TBulkUpsertSettings& settings) {
@@ -1168,7 +1174,7 @@ TAsyncBulkUpsertResult TTableClient::TImpl::BulkUpsert(const std::string& table,
         *mutable_rows->mutable_type() = rows.GetType().GetProto();
     }
 
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "BulkUpsert", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "BulkUpsert", DbDriverState_->Log);
     auto span = std::make_shared<TTableSpan>(Tracer_, "BulkUpsert", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
     auto promise = NewPromise<TBulkUpsertResult>();
@@ -1220,7 +1226,7 @@ TAsyncBulkUpsertResult TTableClient::TImpl::BulkUpsert(const std::string& table,
     request.set_data(TStringType{data});
 
     auto span = std::make_shared<TTableSpan>(Tracer_, "BulkUpsert", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "BulkUpsert", DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "BulkUpsert", DbDriverState_->Log);
 
     auto promise = NewPromise<TBulkUpsertResult>();
 

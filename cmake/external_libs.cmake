@@ -14,6 +14,7 @@ find_package(Brotli 1.1.0 REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(double-conversion REQUIRED)
 
+# OpenTelemetry
 if (YDB_SDK_ENABLE_OTEL_METRICS OR YDB_SDK_ENABLE_OTEL_TRACE)
   find_package(opentelemetry-cpp REQUIRED)
 endif()
