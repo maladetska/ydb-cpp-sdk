@@ -44,10 +44,14 @@ void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
     }
 }
 
-void SafeLogSpanError(TLog& log, const char* message) noexcept {
+void SafeLogSpanError(TLog& log, const char* message, std::exception_ptr exception) noexcept {
     try {
+        if (!exception) {
+            LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": (no active exception)");
+            return;
+        }
         try {
-            std::rethrow_exception(std::current_exception());
+            std::rethrow_exception(exception);
         } catch (const std::exception& e) {
             LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": " + e.what());
             return;
@@ -83,7 +87,7 @@ TOperationSpan::TOperationSpan(std::shared_ptr<NTrace::ITracer> tracer
         Span_->SetAttribute("server.address", host);
         Span_->SetAttribute("server.port", static_cast<int64_t>(port));
     } catch (...) {
-        SafeLogSpanError(Log_, "failed to initialize span");
+        SafeLogSpanError(Log_, "failed to initialize span", std::current_exception());
         Span_.reset();
     }
 }
@@ -93,7 +97,7 @@ TOperationSpan::~TOperationSpan() noexcept {
         try {
             Span_->End();
         } catch (...) {
-            SafeLogSpanError(Log_, "failed to end span");
+            SafeLogSpanError(Log_, "failed to end span", std::current_exception());
         }
     }
 }
@@ -109,7 +113,7 @@ void TOperationSpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
         Span_->SetAttribute("network.peer.address", host);
         Span_->SetAttribute("network.peer.port", static_cast<int64_t>(port));
     } catch (...) {
-        SafeLogSpanError(Log_, "failed to set peer endpoint");
+        SafeLogSpanError(Log_, "failed to set peer endpoint", std::current_exception());
     }
 }
 
@@ -120,7 +124,7 @@ void TOperationSpan::AddEvent(const std::string& name, const std::map<std::strin
     try {
         Span_->AddEvent(name, attributes);
     } catch (...) {
-        SafeLogSpanError(Log_, "failed to add event");
+        SafeLogSpanError(Log_, "failed to add event", std::current_exception());
     }
 }
 
@@ -133,7 +137,7 @@ void TOperationSpan::End(EStatus status) noexcept {
             }
             Span_->End();
         } catch (...) {
-            SafeLogSpanError(Log_, "failed to finalize span");
+            SafeLogSpanError(Log_, "failed to finalize span", std::current_exception());
         }
         Span_.reset();
     }

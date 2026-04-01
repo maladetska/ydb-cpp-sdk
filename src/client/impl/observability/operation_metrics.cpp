@@ -8,10 +8,14 @@ namespace NYdb::inline V3::NObservability {
 
 namespace {
 
-void SafeLogMetricsError(TLog& log, const char* message) noexcept {
+void SafeLogMetricsError(TLog& log, const char* message, std::exception_ptr exception) noexcept {
     try {
+        if (!exception) {
+            LOG_LAZY(log, TLOG_ERR, std::string("TOperationMetrics: ") + message + ": (no active exception)");
+            return;
+        }
         try {
-            std::rethrow_exception(std::current_exception());
+            std::rethrow_exception(exception);
         } catch (const std::exception& e) {
             LOG_LAZY(log, TLOG_ERR, std::string("TOperationMetrics: ") + message + ": " + e.what());
             return;
@@ -38,7 +42,7 @@ TOperationMetrics::TOperationMetrics(NSdkStats::TStatCollector::TClientOperation
         Collector_->IncRequestCount(operationName);
         StartTime_ = std::chrono::steady_clock::now();
     } catch (...) {
-        SafeLogMetricsError(Log_, "failed to initialize metrics");
+        SafeLogMetricsError(Log_, "failed to initialize metrics", std::current_exception());
         Collector_ = nullptr;
     }
 }
@@ -63,7 +67,7 @@ void TOperationMetrics::End(EStatus status) noexcept {
         Collector_->RecordLatency(OperationName_, durationSec, status);
         Collector_->IncErrorCount(OperationName_, status);
     } catch (...) {
-        SafeLogMetricsError(Log_, "failed to record metrics");
+        SafeLogMetricsError(Log_, "failed to record metrics", std::current_exception());
     }
 }
 
