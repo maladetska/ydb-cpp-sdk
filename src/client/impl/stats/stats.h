@@ -257,6 +257,12 @@ public:
             }
             if (ExternalRegistry_) {
                 ExternalRegistry_->Counter(
+                    "db.client.operation.errors",
+                    {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
+                    "Number of database client operations that failed.",
+                    "{error}"
+                );
+                ExternalRegistry_->Counter(
                     "db.client.operation.requests",
                     {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
                     "Number of database client operations started.",

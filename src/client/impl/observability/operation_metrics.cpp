@@ -1,6 +1,6 @@
 #include "operation_metrics.h"
 
-#include <src/client/topic/common/log_lazy.h>
+#include <src/client/impl/internal/common/log_lazy.h>
 
 #include <exception>
 

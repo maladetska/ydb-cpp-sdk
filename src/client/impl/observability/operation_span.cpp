@@ -1,6 +1,6 @@
 #include "operation_span.h"
 
-#include <src/client/topic/common/log_lazy.h>
+#include <src/client/impl/internal/common/log_lazy.h>
 
 #include <util/string/cast.h>
 
