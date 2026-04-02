@@ -1,6 +1,7 @@
 #include "span.h"
 
 #include <src/client/impl/internal/common/log_lazy.h>
+#include <src/client/impl/internal/common/ydb_client_api.h>
 
 #include <util/string/cast.h>
 
@@ -68,6 +69,7 @@ TRequestSpan::TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
     , const std::string& requestName
     , const std::string& endpoint
     , const TLog& log
+    , const std::string& ydbClientType
 ) : Log_(log) {
     if (!tracer) {
         return;
@@ -82,8 +84,9 @@ TRequestSpan::TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
         if (!Span_) {
             return;
         }
-        Span_->SetAttribute("db.system.name", "other_sql");
+        Span_->SetAttribute("db.system.name", "ydb");
         Span_->SetAttribute("db.operation.name", requestName);
+        Span_->SetAttribute("ydb.client.api", YdbClientApiAttributeValue(ydbClientType));
         Span_->SetAttribute("server.address", host);
         Span_->SetAttribute("server.port", static_cast<int64_t>(port));
     } catch (...) {

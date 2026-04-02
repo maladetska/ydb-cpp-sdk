@@ -24,22 +24,25 @@ protected:
 
     std::shared_ptr<TFakeCounter> RequestCounter(const std::string& op) {
         return Registry->GetCounter("db.client.operation.requests", {
-            {"db.system.name", "other_sql"},
+            {"db.system.name", "ydb"},
             {"db.operation.name", op},
+            {"ydb.client.api", "unspecified"},
         });
     }
 
     std::shared_ptr<TFakeCounter> ErrorCounter(const std::string& op) {
         return Registry->GetCounter("db.client.operation.errors", {
-            {"db.system.name", "other_sql"},
+            {"db.system.name", "ydb"},
             {"db.operation.name", op},
+            {"ydb.client.api", "unspecified"},
         });
     }
 
     std::shared_ptr<TFakeHistogram> DurationHistogram(const std::string& op, EStatus status) {
         TLabels labels = {
-            {"db.system.name", "other_sql"},
+            {"db.system.name", "ydb"},
             {"db.operation.name", op},
+            {"ydb.client.api", "unspecified"},
             {"db.response.status_code", ToString(status)},
         };
         if (status != EStatus::SUCCESS) {
@@ -199,7 +202,7 @@ TEST_F(RequestMetricsTest, AllErrorStatusesIncrementErrorCounter) {
 
 TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
     auto registry = std::make_shared<TFakeMetricRegistry>();
-    TStatCollector::TClientOperationStatCollector collector(nullptr, "", "", registry);
+    TStatCollector::TClientOperationStatCollector collector(nullptr, "", "Query", registry);
 
     NObservability::TRequestMetrics metrics(&collector, "ExecuteQuery", TLog());
     metrics.End(EStatus::SUCCESS);
@@ -208,8 +211,9 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
         registry->GetCounter(
             "db.client.operation.requests",
             {
-                {"db.system.name", "other_sql"},
-                {"db.operation.name", "ExecuteQuery"}
+                {"db.system.name", "ydb"},
+                {"db.operation.name", "ExecuteQuery"},
+                {"ydb.client.api", "query"},
             }
         ),
         nullptr
@@ -218,8 +222,9 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
         registry->GetCounter(
             "db.client.operation.errors",
             {
-                {"db.system.name", "other_sql"},
-                {"db.operation.name", "ExecuteQuery"}
+                {"db.system.name", "ydb"},
+                {"db.operation.name", "ExecuteQuery"},
+                {"ydb.client.api", "query"},
             }
         ),
         nullptr
@@ -228,8 +233,9 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
         registry->GetHistogram(
             "db.client.operation.duration",
             {
-                {"db.system.name", "other_sql"},
+                {"db.system.name", "ydb"},
                 {"db.operation.name", "ExecuteQuery"},
+                {"ydb.client.api", "query"},
                 {"db.response.status_code", ToString(EStatus::SUCCESS)},
             }
         ),
@@ -239,7 +245,7 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
 
 TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
     auto registry = std::make_shared<TFakeMetricRegistry>();
-    TStatCollector::TClientOperationStatCollector collector(nullptr, "", "", registry);
+    TStatCollector::TClientOperationStatCollector collector(nullptr, "", "Table", registry);
 
     NObservability::TRequestMetrics metrics(&collector, "ExecuteDataQuery", TLog());
     metrics.End(EStatus::SUCCESS);
@@ -247,14 +253,22 @@ TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
     EXPECT_NE(
         registry->GetCounter(
             "db.client.operation.requests",
-            {{"db.system.name", "other_sql"}, {"db.operation.name", "ExecuteDataQuery"}}
+            {
+                {"db.system.name", "ydb"},
+                {"db.operation.name", "ExecuteDataQuery"},
+                {"ydb.client.api", "table"}
+            }
         ),
         nullptr
     );
     EXPECT_NE(
         registry->GetCounter(
             "db.client.operation.errors",
-            {{"db.system.name", "other_sql"}, {"db.operation.name", "ExecuteDataQuery"}}
+            {
+                {"db.system.name", "ydb"},
+                {"db.operation.name", "ExecuteDataQuery"},
+                {"ydb.client.api", "table"}
+            }
         ),
         nullptr
     );
@@ -262,8 +276,9 @@ TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
         registry->GetHistogram(
             "db.client.operation.duration",
             {
-                {"db.system.name", "other_sql"},
+                {"db.system.name", "ydb"},
                 {"db.operation.name", "ExecuteDataQuery"},
+                {"ydb.client.api", "table"},
                 {"db.response.status_code", ToString(EStatus::SUCCESS)},
             }
         ),

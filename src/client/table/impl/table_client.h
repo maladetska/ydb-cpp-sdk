@@ -4,8 +4,7 @@
 #include <src/client/impl/internal/scheme_helpers/helpers.h>
 #include <src/client/impl/internal/table_helpers/helpers.h>
 #include <src/client/impl/internal/make_request/make.h>
-#include <src/client/impl/observability/metrics.h>
-#include <src/client/impl/observability/span.h>
+#include <src/client/impl/observability/observation.h>
 #include <src/client/impl/session/session_client.h>
 #include <src/client/impl/session/session_pool.h>
 #undef INCLUDE_YDB_INTERNAL_H
@@ -239,9 +238,7 @@ private:
         auto promise = NewPromise<TDataQueryResult>();
         bool keepInCache = settings.KeepInQueryCache_ && settings.KeepInQueryCache_.value();
 
-        auto metrics = std::make_shared<NObservability::TRequestMetrics>(&OperationStatCollector_, "ExecuteDataQuery", DbDriverState_->Log);
-        auto span = std::make_shared<NObservability::TRequestSpan>(Tracer_, "ExecuteDataQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-
+        auto obs = MakeObservation("ExecuteDataQuery");
 
         // We don't want to delay call of TSession dtor, so we can't capture it by copy
         // otherwise we break session pool and other clients logic.
@@ -252,7 +249,7 @@ private:
         // - capture pointer
         // - call free just before SetValue call
         auto sessionPtr = new TSession(session);
-        auto extractor = [promise, sessionPtr, query, fromCache, keepInCache, metrics, span]
+        auto extractor = [promise, sessionPtr, query, fromCache, keepInCache, obs]
             (google::protobuf::Any* any, TPlainStatus status) mutable {
                 std::vector<TResultSet> res;
                 std::optional<TTransaction> tx;
@@ -291,8 +288,7 @@ private:
                 TDataQueryResult dataQueryResult(TStatus(std::move(status)),
                     std::move(res), tx, dataQuery, fromCache, queryStats);
 
-                metrics->End(dataQueryResult.GetStatus());
-                span->End(dataQueryResult.GetStatus());
+                obs->End(dataQueryResult.GetStatus());
 
                 delete sessionPtr;
                 tx.reset();
@@ -341,6 +337,17 @@ private:
     NSessionPool::TSessionPool SessionPool_;
     TRequestMigrator RequestMigrator_;
     static const TKeepAliveSettings KeepAliveSettings;
+
+    std::shared_ptr<NObservability::TRequestObservation> MakeObservation(const std::string& operationName) {
+        return std::make_shared<NObservability::TRequestObservation>(
+            "Table",
+            &OperationStatCollector_,
+            Tracer_,
+            operationName,
+            DbDriverState_->DiscoveryEndpoint,
+            DbDriverState_->Log
+        );
+    }
 };
 
 }

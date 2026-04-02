@@ -3,6 +3,7 @@
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/metrics/metrics.h>
 
+#include <src/client/impl/internal/common/ydb_client_api.h>
 #include <src/library/grpc/client/grpc_client_low.h>
 #include <library/cpp/monlib/metrics/metric_registry.h>
 #include <library/cpp/monlib/metrics/histogram_collector.h>
@@ -254,18 +255,24 @@ public:
                 })->Inc();
             }
             if (ExternalRegistry_) {
-                ExternalRegistry_->Counter(
-                    "db.client.operation.errors",
-                    {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
-                    "Number of database client operations that failed.",
-                    "{error}"
-                );
+                const std::string clientApi = NObservability::YdbClientApiAttributeValue(ClientType_);
+                NMetrics::TLabels labels = {
+                    {"db.system.name", "ydb"},
+                    {"db.operation.name", operationName},
+                    {"ydb.client.api", clientApi},
+                };
                 ExternalRegistry_->Counter(
                     "db.client.operation.requests",
-                    {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
+                    labels,
                     "Number of database client operations started.",
                     "{operation}"
                 )->Inc();
+                ExternalRegistry_->Counter(
+                    "db.client.operation.errors",
+                    labels,
+                    "Number of database client operations that failed.",
+                    "{error}"
+                );
             }
         }
 
@@ -283,9 +290,15 @@ public:
                 })->Inc();
             }
             if (ExternalRegistry_) {
+                const std::string clientApi = NObservability::YdbClientApiAttributeValue(ClientType_);
+                NMetrics::TLabels labels = {
+                    {"db.system.name", "ydb"},
+                    {"db.operation.name", operationName},
+                    {"ydb.client.api", clientApi},
+                };
                 ExternalRegistry_->Counter(
                     "db.client.operation.errors",
-                    {{"db.system.name", "other_sql"}, {"db.operation.name", operationName}},
+                    labels,
                     "Number of database client operations that failed.",
                     "{error}"
                 )->Inc();
@@ -304,8 +317,9 @@ public:
             }
             if (ExternalRegistry_) {
                 NMetrics::TLabels labels = {
-                    {"db.system.name", "other_sql"},
+                    {"db.system.name", "ydb"},
                     {"db.operation.name", operationName},
+                    {"ydb.client.api", NObservability::YdbClientApiAttributeValue(ClientType_)},
                     {"db.response.status_code", TStringBuilder() << status},
                 };
                 if (status != EStatus::SUCCESS) {

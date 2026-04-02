@@ -38,8 +38,9 @@ std::shared_ptr<TFakeCounter> GetCounter(
     const std::string& operation)
 {
     return registry->GetCounter(name, {
-        {"db.system.name", "other_sql"},
+        {"db.system.name", "ydb"},
         {"db.operation.name", operation},
+        {"ydb.client.api", "query"},
     });
 }
 
@@ -49,8 +50,9 @@ std::shared_ptr<TFakeHistogram> GetDuration(
     EStatus status)
 {
     NMetrics::TLabels labels = {
-        {"db.system.name", "other_sql"},
+        {"db.system.name", "ydb"},
         {"db.operation.name", operation},
+        {"ydb.client.api", "query"},
         {"db.response.status_code", ToString(status)},
     };
     if (status != EStatus::SUCCESS) {

@@ -8,6 +8,7 @@ target_link_libraries(impl-observability PUBLIC
 
 target_sources(impl-observability PRIVATE
   metrics.cpp
+  observation.cpp
   span.cpp
 )
 

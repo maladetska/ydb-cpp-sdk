@@ -18,6 +18,7 @@ public:
         , const std::string& requestName
         , const std::string& endpoint
         , const TLog& log
+        , const std::string& ydbClientType = {}
     );
     ~TRequestSpan() noexcept;
 
