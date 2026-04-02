@@ -1,4 +1,4 @@
-#include <src/client/impl/observability/operation_metrics.h>
+#include <src/client/impl/observability/metrics.h>
 #include <src/client/impl/stats/stats.h>
 #include <tests/common/fake_metric_registry.h>
 #include <util/string/cast.h>
@@ -12,14 +12,14 @@ using namespace NYdb::NTests;
 using namespace NYdb::NSdkStats;
 
 // ---------------------------------------------------------------------------
-// TOperationMetrics (shared logic)
+// TRequestMetrics (shared logic)
 // ---------------------------------------------------------------------------
 
-class OperationMetricsTest : public ::testing::Test {
+class RequestMetricsTest : public ::testing::Test {
 protected:
     void SetUp() override {
         Registry = std::make_shared<TFakeMetricRegistry>();
-        OpCollector.SetExternalRegistry(Registry);
+        OpCollector = TStatCollector::TClientOperationStatCollector(nullptr, "", "", Registry);
     }
 
     std::shared_ptr<TFakeCounter> RequestCounter(const std::string& op) {
@@ -52,17 +52,17 @@ protected:
     std::shared_ptr<TFakeMetricRegistry> Registry;
 };
 
-TEST_F(OperationMetricsTest, RequestCounterIncrementedOnConstruction) {
-    TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+TEST_F(RequestMetricsTest, RequestCounterIncrementedOnConstruction) {
+    TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
 
     auto counter = RequestCounter("DoSomething");
     ASSERT_NE(counter, nullptr);
     EXPECT_EQ(counter->Get(), 1);
 }
 
-TEST_F(OperationMetricsTest, SuccessDoesNotIncrementErrorCounter) {
+TEST_F(RequestMetricsTest, SuccessDoesNotIncrementErrorCounter) {
     {
-        TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+        TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
         metrics.End(EStatus::SUCCESS);
     }
 
@@ -71,9 +71,9 @@ TEST_F(OperationMetricsTest, SuccessDoesNotIncrementErrorCounter) {
     EXPECT_EQ(errors->Get(), 0);
 }
 
-TEST_F(OperationMetricsTest, FailureIncrementsErrorCounter) {
+TEST_F(RequestMetricsTest, FailureIncrementsErrorCounter) {
     {
-        TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+        TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
         metrics.End(EStatus::UNAVAILABLE);
     }
 
@@ -82,9 +82,9 @@ TEST_F(OperationMetricsTest, FailureIncrementsErrorCounter) {
     EXPECT_EQ(errors->Get(), 1);
 }
 
-TEST_F(OperationMetricsTest, DurationRecordedOnEnd) {
+TEST_F(RequestMetricsTest, DurationRecordedOnEnd) {
     {
-        TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+        TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
         metrics.End(EStatus::SUCCESS);
     }
 
@@ -94,9 +94,9 @@ TEST_F(OperationMetricsTest, DurationRecordedOnEnd) {
     EXPECT_GE(hist->GetValues()[0], 0.0);
 }
 
-TEST_F(OperationMetricsTest, DurationIsInSeconds) {
+TEST_F(RequestMetricsTest, DurationIsInSeconds) {
     {
-        TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+        TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
         metrics.End(EStatus::SUCCESS);
     }
 
@@ -105,8 +105,8 @@ TEST_F(OperationMetricsTest, DurationIsInSeconds) {
     EXPECT_LT(hist->GetValues()[0], 1.0);
 }
 
-TEST_F(OperationMetricsTest, DoubleEndIsIdempotent) {
-    TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+TEST_F(RequestMetricsTest, DoubleEndIsIdempotent) {
+    TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
     metrics.End(EStatus::SUCCESS);
     metrics.End(EStatus::INTERNAL_ERROR);
 
@@ -119,9 +119,9 @@ TEST_F(OperationMetricsTest, DoubleEndIsIdempotent) {
     EXPECT_EQ(hist->Count(), 1u);
 }
 
-TEST_F(OperationMetricsTest, DestructorCallsEndWithClientInternalError) {
+TEST_F(RequestMetricsTest, DestructorCallsEndWithClientInternalError) {
     {
-        TOperationMetrics metrics(&OpCollector, "DoSomething", TLog());
+        TRequestMetrics metrics(&OpCollector, "DoSomething", TLog());
     }
 
     auto requests = RequestCounter("DoSomething");
@@ -137,21 +137,21 @@ TEST_F(OperationMetricsTest, DestructorCallsEndWithClientInternalError) {
     EXPECT_EQ(hist->Count(), 1u);
 }
 
-TEST_F(OperationMetricsTest, NullRegistryDoesNotCrash) {
+TEST_F(RequestMetricsTest, NullRegistryDoesNotCrash) {
     EXPECT_NO_THROW({
         TStatCollector::TClientOperationStatCollector nullCollector;
-        TOperationMetrics metrics(&nullCollector, "DoSomething", TLog());
+        TRequestMetrics metrics(&nullCollector, "DoSomething", TLog());
         metrics.End(EStatus::SUCCESS);
     });
 }
 
-TEST_F(OperationMetricsTest, DifferentOperationsHaveSeparateMetrics) {
+TEST_F(RequestMetricsTest, DifferentOperationsHaveSeparateMetrics) {
     {
-        TOperationMetrics m1(&OpCollector, "OpA", TLog());
+        TRequestMetrics m1(&OpCollector, "OpA", TLog());
         m1.End(EStatus::SUCCESS);
     }
     {
-        TOperationMetrics m2(&OpCollector, "OpB", TLog());
+        TRequestMetrics m2(&OpCollector, "OpB", TLog());
         m2.End(EStatus::OVERLOADED);
     }
 
@@ -163,9 +163,9 @@ TEST_F(OperationMetricsTest, DifferentOperationsHaveSeparateMetrics) {
     EXPECT_EQ(DurationHistogram("OpB", EStatus::OVERLOADED)->Count(), 1u);
 }
 
-TEST_F(OperationMetricsTest, MultipleRequestsAccumulate) {
+TEST_F(RequestMetricsTest, MultipleRequestsAccumulate) {
     for (int i = 0; i < 5; ++i) {
-        TOperationMetrics metrics(&OpCollector, "Op", TLog());
+        TRequestMetrics metrics(&OpCollector, "Op", TLog());
         metrics.End(i % 2 == 0 ? EStatus::SUCCESS : EStatus::TIMEOUT);
     }
 
@@ -175,7 +175,7 @@ TEST_F(OperationMetricsTest, MultipleRequestsAccumulate) {
     EXPECT_EQ(DurationHistogram("Op", EStatus::TIMEOUT)->Count(), 2u);
 }
 
-TEST_F(OperationMetricsTest, AllErrorStatusesIncrementErrorCounter) {
+TEST_F(RequestMetricsTest, AllErrorStatusesIncrementErrorCounter) {
     std::vector<EStatus> errorStatuses = {
         EStatus::BAD_REQUEST,
         EStatus::UNAUTHORIZED,
@@ -188,7 +188,7 @@ TEST_F(OperationMetricsTest, AllErrorStatusesIncrementErrorCounter) {
     };
 
     for (auto status : errorStatuses) {
-        TOperationMetrics metrics(&OpCollector, "Op", TLog());
+        TRequestMetrics metrics(&OpCollector, "Op", TLog());
         metrics.End(status);
     }
 
@@ -197,12 +197,11 @@ TEST_F(OperationMetricsTest, AllErrorStatusesIncrementErrorCounter) {
     EXPECT_EQ(errors->Get(), static_cast<int64_t>(errorStatuses.size()));
 }
 
-TEST(OperationMetricsAliasesTest, QueryOperationsUseOtelStandardMetrics) {
+TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
     auto registry = std::make_shared<TFakeMetricRegistry>();
-    TStatCollector::TClientOperationStatCollector collector;
-    collector.SetExternalRegistry(registry);
+    TStatCollector::TClientOperationStatCollector collector(nullptr, "", "", registry);
 
-    NObservability::TOperationMetrics metrics(&collector, "ExecuteQuery", TLog());
+    NObservability::TRequestMetrics metrics(&collector, "ExecuteQuery", TLog());
     metrics.End(EStatus::SUCCESS);
 
     EXPECT_NE(
@@ -238,12 +237,11 @@ TEST(OperationMetricsAliasesTest, QueryOperationsUseOtelStandardMetrics) {
     );
 }
 
-TEST(OperationMetricsAliasesTest, TableOperationsUseOtelStandardMetrics) {
+TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
     auto registry = std::make_shared<TFakeMetricRegistry>();
-    TStatCollector::TClientOperationStatCollector collector;
-    collector.SetExternalRegistry(registry);
+    TStatCollector::TClientOperationStatCollector collector(nullptr, "", "", registry);
 
-    NObservability::TOperationMetrics metrics(&collector, "ExecuteDataQuery", TLog());
+    NObservability::TRequestMetrics metrics(&collector, "ExecuteDataQuery", TLog());
     metrics.End(EStatus::SUCCESS);
 
     EXPECT_NE(

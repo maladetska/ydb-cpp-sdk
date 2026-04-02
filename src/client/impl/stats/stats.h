@@ -236,15 +236,13 @@ public:
 
         TClientOperationStatCollector(::NMonitoring::TMetricRegistry* registry,
                                       const std::string& database,
-                                      const std::string& clientType)
+                                      const std::string& clientType,
+                                      std::shared_ptr<NMetrics::IMetricRegistry> externalRegistry = {})
             : MetricRegistry_(registry)
+            , ExternalRegistry_(std::move(externalRegistry))
             , Database_(database)
             , ClientType_(clientType)
         {}
-
-        void SetExternalRegistry(const std::shared_ptr<NMetrics::IMetricRegistry>& externalRegistry) {
-            ExternalRegistry_ = externalRegistry;
-        }
 
         void IncRequestCount(const std::string& operationName) {
             if (auto registry = MetricRegistry_.Get()) {
@@ -462,7 +460,10 @@ public:
         return TSessionPoolStatCollector();
     }
 
-    TClientStatCollector GetClientStatCollector(const std::string& clientType) {
+    TClientStatCollector GetClientStatCollector(
+        const std::string& clientType,
+        std::shared_ptr<NMetrics::IMetricRegistry> externalMetricRegistry = {})
+    {
         if (auto registry = MetricRegistryPtr_.Get()) {
             ::NMonitoring::TRate* cacheMiss = nullptr;
             ::NMonitoring::TRate* sessionRemovedDueBalancing = nullptr;
@@ -484,12 +485,12 @@ public:
 
             return TClientStatCollector(cacheMiss, querySize, paramsSize, sessionRemovedDueBalancing, requestMigrated,
                 TClientRetryOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType),
-                TClientOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType));
+                TClientOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType, std::move(externalMetricRegistry)));
         }
 
         return TClientStatCollector(nullptr, nullptr, nullptr, nullptr, nullptr,
             TClientRetryOperationStatCollector(nullptr, Database_, clientType),
-            TClientOperationStatCollector(nullptr, Database_, clientType));
+            TClientOperationStatCollector(nullptr, Database_, clientType, std::move(externalMetricRegistry)));
     }
 
     bool IsCollecting() {

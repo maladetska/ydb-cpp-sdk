@@ -4,7 +4,8 @@
 #include <src/client/impl/internal/scheme_helpers/helpers.h>
 #include <src/client/impl/internal/table_helpers/helpers.h>
 #include <src/client/impl/internal/make_request/make.h>
-#include <src/client/impl/observability/operation_metrics.h>
+#include <src/client/impl/observability/metrics.h>
+#include <src/client/impl/observability/span.h>
 #include <src/client/impl/session/session_client.h>
 #include <src/client/impl/session/session_pool.h>
 #undef INCLUDE_YDB_INTERNAL_H
@@ -18,7 +19,6 @@
 #include "data_query.h"
 #include "request_migrator.h"
 #include "readers.h"
-#include "table_spans.h"
 
 #include <library/cpp/threading/future/core/coroutine_traits.h>
 
@@ -239,8 +239,8 @@ private:
         auto promise = NewPromise<TDataQueryResult>();
         bool keepInCache = settings.KeepInQueryCache_ && settings.KeepInQueryCache_.value();
 
-        auto metrics = std::make_shared<NObservability::TOperationMetrics>(&OperationStatCollector_, "ExecuteDataQuery", DbDriverState_->Log);
-        auto span = std::make_shared<TTableSpan>(Tracer_, "ExecuteDataQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
+        auto metrics = std::make_shared<NObservability::TRequestMetrics>(&OperationStatCollector_, "ExecuteDataQuery", DbDriverState_->Log);
+        auto span = std::make_shared<NObservability::TRequestSpan>(Tracer_, "ExecuteDataQuery", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
 
         // We don't want to delay call of TSession dtor, so we can't capture it by copy

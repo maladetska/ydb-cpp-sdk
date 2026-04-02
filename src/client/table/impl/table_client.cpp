@@ -6,7 +6,8 @@ namespace NTable {
 
 using namespace NThreading;
 
-using TTableMetrics = NObservability::TOperationMetrics;
+using TTableMetrics = NObservability::TRequestMetrics;
+using TTableSpan = NObservability::TRequestSpan;
 
 const TKeepAliveSettings TTableClient::TImpl::KeepAliveSettings = TKeepAliveSettings().ClientTimeout(KEEP_ALIVE_CLIENT_TIMEOUT);
 
@@ -24,9 +25,8 @@ TTableClient::TImpl::TImpl(std::shared_ptr<TGRpcConnectionsImpl>&& connections, 
     , Settings_(settings)
     , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
 {
-    auto clientCollector = DbDriverState_->StatCollector.GetClientStatCollector("Table");
+    auto clientCollector = DbDriverState_->StatCollector.GetClientStatCollector("Table", Connections_->GetExternalMetricRegistry());
     OperationStatCollector_ = clientCollector.OperationStatCollector;
-    OperationStatCollector_.SetExternalRegistry(Connections_->GetExternalMetricRegistry());
 
     if (auto traceProvider = Connections_->GetTraceProvider()) {
         Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-table");
@@ -388,8 +388,8 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
 
     auto createSessionPromise = NewPromise<TCreateSessionResult>();
     auto self = shared_from_this();
-    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "CreateSession", DbDriverState_->Log);
-    auto span = std::make_shared<TTableSpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
+    auto metrics = std::make_shared<TTableMetrics>(&OperationStatCollector_, "GetSession", DbDriverState_->Log);
+    auto span = std::make_shared<TTableSpan>(Tracer_, "GetSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
 
     auto createSessionExtractor = [createSessionPromise, self, standalone, metrics, span]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
@@ -1145,7 +1145,6 @@ void TTableClient::TImpl::SetStatCollector(const NSdkStats::TStatCollector::TCli
     RetryOperationStatCollector = collector.RetryOperationStatCollector;
     SessionRemovedDueBalancing.Set(collector.SessionRemovedDueBalancing);
     OperationStatCollector_ = collector.OperationStatCollector;
-    OperationStatCollector_.SetExternalRegistry(Connections_->GetExternalMetricRegistry());
 }
 
 TAsyncBulkUpsertResult TTableClient::TImpl::BulkUpsert(const std::string& table, TValue&& rows, const TBulkUpsertSettings& settings) {

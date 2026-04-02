@@ -7,8 +7,8 @@ target_link_libraries(impl-observability PUBLIC
 )
 
 target_sources(impl-observability PRIVATE
-  operation_metrics.cpp
-  operation_span.cpp
+  metrics.cpp
+  span.cpp
 )
 
 _ydb_sdk_install_targets(TARGETS impl-observability)

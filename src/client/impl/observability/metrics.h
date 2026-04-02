@@ -10,19 +10,19 @@
 
 namespace NYdb::inline V3::NObservability {
 
-class TOperationMetrics {
+class TRequestMetrics {
 public:
-    TOperationMetrics(NSdkStats::TStatCollector::TClientOperationStatCollector* operationCollector
-        , const std::string& operationName
+    TRequestMetrics(NSdkStats::TStatCollector::TClientOperationStatCollector* operationCollector
+        , const std::string& requestName
         , const TLog& log
     );
-    ~TOperationMetrics() noexcept;
+    ~TRequestMetrics() noexcept;
 
     void End(EStatus status) noexcept;
 
 private:
     NSdkStats::TStatCollector::TClientOperationStatCollector* Collector_ = nullptr;
-    std::string OperationName_;
+    std::string RequestName_;
     std::chrono::steady_clock::time_point StartTime_{};
     bool Ended_ = false;
     TLog Log_;

@@ -1,4 +1,4 @@
-#include "operation_span.h"
+#include "span.h"
 
 #include <src/client/impl/internal/common/log_lazy.h>
 
@@ -44,28 +44,28 @@ void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
     }
 }
 
-void SafeLogSpanError(TLog& log, const char* message, std::exception_ptr exception) noexcept {
+void SafeLogRequestSpanError(TLog& log, const char* message, std::exception_ptr exception) noexcept {
     try {
         if (!exception) {
-            LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": (no active exception)");
+            LOG_LAZY(log, TLOG_ERR, std::string("TRequestSpan: ") + message + ": (no active exception)");
             return;
         }
         try {
             std::rethrow_exception(exception);
         } catch (const std::exception& e) {
-            LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": " + e.what());
+            LOG_LAZY(log, TLOG_ERR, std::string("TRequestSpan: ") + message + ": " + e.what());
             return;
         } catch (...) {
         }
-        LOG_LAZY(log, TLOG_ERR, std::string("TOperationSpan: ") + message + ": (unknown)");
+        LOG_LAZY(log, TLOG_ERR, std::string("TRequestSpan: ") + message + ": (unknown)");
     } catch (...) {
     }
 }
 
 } // namespace
 
-TOperationSpan::TOperationSpan(std::shared_ptr<NTrace::ITracer> tracer
-    , const std::string& operationName
+TRequestSpan::TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
+    , const std::string& requestName
     , const std::string& endpoint
     , const TLog& log
 ) : Log_(log) {
@@ -78,31 +78,31 @@ TOperationSpan::TOperationSpan(std::shared_ptr<NTrace::ITracer> tracer
     ParseEndpoint(endpoint, host, port);
 
     try {
-        Span_ = tracer->StartSpan(operationName, NTrace::ESpanKind::CLIENT);
+        Span_ = tracer->StartSpan(requestName, NTrace::ESpanKind::CLIENT);
         if (!Span_) {
             return;
         }
         Span_->SetAttribute("db.system.name", "other_sql");
-        Span_->SetAttribute("db.operation.name", operationName);
+        Span_->SetAttribute("db.operation.name", requestName);
         Span_->SetAttribute("server.address", host);
         Span_->SetAttribute("server.port", static_cast<int64_t>(port));
     } catch (...) {
-        SafeLogSpanError(Log_, "failed to initialize span", std::current_exception());
+        SafeLogRequestSpanError(Log_, "failed to initialize span", std::current_exception());
         Span_.reset();
     }
 }
 
-TOperationSpan::~TOperationSpan() noexcept {
+TRequestSpan::~TRequestSpan() noexcept {
     if (Span_) {
         try {
             Span_->End();
         } catch (...) {
-            SafeLogSpanError(Log_, "failed to end span", std::current_exception());
+            SafeLogRequestSpanError(Log_, "failed to end span", std::current_exception());
         }
     }
 }
 
-void TOperationSpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
+void TRequestSpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
     if (!Span_ || endpoint.empty()) {
         return;
     }
@@ -113,31 +113,31 @@ void TOperationSpan::SetPeerEndpoint(const std::string& endpoint) noexcept {
         Span_->SetAttribute("network.peer.address", host);
         Span_->SetAttribute("network.peer.port", static_cast<int64_t>(port));
     } catch (...) {
-        SafeLogSpanError(Log_, "failed to set peer endpoint", std::current_exception());
+        SafeLogRequestSpanError(Log_, "failed to set peer endpoint", std::current_exception());
     }
 }
 
-void TOperationSpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
+void TRequestSpan::AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes) noexcept {
     if (!Span_) {
         return;
     }
     try {
         Span_->AddEvent(name, attributes);
     } catch (...) {
-        SafeLogSpanError(Log_, "failed to add event", std::current_exception());
+        SafeLogRequestSpanError(Log_, "failed to add event", std::current_exception());
     }
 }
 
-void TOperationSpan::End(EStatus status) noexcept {
+void TRequestSpan::End(EStatus status) noexcept {
     if (Span_) {
         try {
-            Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
+            Span_->SetAttribute("db.response.status_code", ToString(status));
             if (status != EStatus::SUCCESS) {
                 Span_->SetAttribute("error.type", ToString(status));
             }
             Span_->End();
         } catch (...) {
-            SafeLogSpanError(Log_, "failed to finalize span", std::current_exception());
+            SafeLogRequestSpanError(Log_, "failed to finalize span", std::current_exception());
         }
         Span_.reset();
     }

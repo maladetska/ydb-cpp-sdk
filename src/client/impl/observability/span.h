@@ -12,14 +12,14 @@
 
 namespace NYdb::inline V3::NObservability {
 
-class TOperationSpan {
+class TRequestSpan {
 public:
-    TOperationSpan(std::shared_ptr<NTrace::ITracer> tracer
-        , const std::string& operationName
+    TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
+        , const std::string& requestName
         , const std::string& endpoint
         , const TLog& log
     );
-    ~TOperationSpan() noexcept;
+    ~TRequestSpan() noexcept;
 
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;

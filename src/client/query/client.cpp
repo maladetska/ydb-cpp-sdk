@@ -14,9 +14,9 @@
 
 #include <ydb-cpp-sdk/library/operation_id/operation_id.h>
 #include <src/client/common_client/impl/client.h>
-#include <src/client/impl/observability/operation_metrics.h>
+#include <src/client/impl/observability/metrics.h>
+#include <src/client/impl/observability/span.h>
 #include <src/client/query/impl/exec_query.h>
-#include <src/client/query/impl/query_spans.h>
 #include <ydb-cpp-sdk/client/retry/retry.h>
 #include <ydb-cpp-sdk/client/trace/trace.h>
 
@@ -26,7 +26,8 @@
 
 namespace NYdb::inline V3::NQuery {
 
-using TQueryMetrics = NObservability::TOperationMetrics;
+using TQueryMetrics = NObservability::TRequestMetrics;
+using TQuerySpan = NObservability::TRequestSpan;
 using TRetryContextResultAsync = NRetry::Async::TRetryContext<TQueryClient, TAsyncExecuteQueryResult>;
 using TRetryContextAsync = NRetry::Async::TRetryContext<TQueryClient, TAsyncStatus>;
 
@@ -69,7 +70,7 @@ public:
         , Settings_(settings)
         , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
     {
-        SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query"));
+        SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query", Connections_->GetExternalMetricRegistry()));
         SessionPool_.SetStatCollector(DbDriverState_->StatCollector.GetSessionPoolStatCollector("Query"));
 
         if (auto traceProvider = Connections_->GetTraceProvider()) {
@@ -86,7 +87,6 @@ public:
         ParamsSizeHistogram_.Set(collector.ParamsSize);
         RetryOperationStatCollector_ = collector.RetryOperationStatCollector;
         OperationStatCollector_ = collector.OperationStatCollector;
-        OperationStatCollector_.SetExternalRegistry(Connections_->GetExternalMetricRegistry());
     }
 
     TAsyncExecuteQueryIterator StreamExecuteQuery(const std::string& query, const TTxControl& txControl,
@@ -557,8 +557,8 @@ public:
             std::shared_ptr<TQueryMetrics> Metrics;
         };
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
-        auto metrics = std::make_shared<TQueryMetrics>(&OperationStatCollector_, "CreateSession", DbDriverState_->Log);
+        auto span = std::make_shared<TQuerySpan>(Tracer_, "GetSession", DbDriverState_->DiscoveryEndpoint, DbDriverState_->Log);
+        auto metrics = std::make_shared<TQueryMetrics>(&OperationStatCollector_, "GetSession", DbDriverState_->Log);
         auto ctx = std::make_unique<TQueryClientGetSessionCtx>(shared_from_this(), settings, span, metrics);
         auto future = ctx->GetFuture();
         SessionPool_.GetSession(std::move(ctx));
