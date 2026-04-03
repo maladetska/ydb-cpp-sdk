@@ -127,11 +127,11 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     auto session = client.GetSession().ExtractValueSync();
     ASSERT_TRUE(session.IsSuccess()) << session.GetIssues().ToString();
 
-    auto requests = GetCounter(registry, "db.client.operation.requests", "CreateSession");
+    auto requests = GetCounter(registry, "db.client.operation.requests", "GetSession");
     ASSERT_NE(requests, nullptr) << "CreateSession request counter not created";
     EXPECT_GE(requests->Get(), 1);
 
-    auto duration = GetDuration(registry, "CreateSession", EStatus::SUCCESS);
+    auto duration = GetDuration(registry, "GetSession", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr) << "CreateSession duration histogram not created";
     EXPECT_GE(duration->Count(), 1u);
 
