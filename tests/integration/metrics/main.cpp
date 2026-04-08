@@ -3,6 +3,8 @@
 #include <tests/common/fake_metric_registry.h>
 #include <util/string/cast.h>
 
+#include <cstdlib>
+
 #include <library/cpp/testing/gtest/gtest.h>
 
 using namespace NYdb;
@@ -11,21 +13,26 @@ using namespace NYdb::NTests;
 
 namespace {
 
+std::string GetEnvOrEmpty(const char* name) {
+    const char* value = std::getenv(name);
+    return value ? std::string(value) : std::string();
+}
+
 struct TRunArgs {
     TDriver Driver;
     std::shared_ptr<TFakeMetricRegistry> Registry;
 };
 
 TRunArgs MakeRunArgs() {
-    std::string endpoint = std::getenv("YDB_ENDPOINT");
-    std::string database = std::getenv("YDB_DATABASE");
+    std::string endpoint = GetEnvOrEmpty("YDB_ENDPOINT");
+    std::string database = GetEnvOrEmpty("YDB_DATABASE");
 
     auto registry = std::make_shared<TFakeMetricRegistry>();
 
     auto driverConfig = TDriverConfig()
         .SetEndpoint(endpoint)
         .SetDatabase(database)
-        .SetAuthToken(std::getenv("YDB_TOKEN") ? std::getenv("YDB_TOKEN") : "")
+        .SetAuthToken(GetEnvOrEmpty("YDB_TOKEN"))
         .SetMetricRegistry(registry);
 
     TDriver driver(driverConfig);
@@ -39,6 +46,7 @@ std::shared_ptr<TFakeCounter> GetCounter(
 {
     return registry->GetCounter(name, {
         {"db.system.name", "ydb"},
+        {"db.namespace", GetEnvOrEmpty("YDB_DATABASE")},
         {"db.operation.name", operation},
         {"ydb.client.api", "Query"},
     });
@@ -51,6 +59,7 @@ std::shared_ptr<TFakeHistogram> GetDuration(
 {
     NMetrics::TLabels labels = {
         {"db.system.name", "ydb"},
+        {"db.namespace", GetEnvOrEmpty("YDB_DATABASE")},
         {"db.operation.name", operation},
         {"ydb.client.api", "Query"},
         {"db.response.status_code", ToString(status)},
@@ -237,13 +246,13 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
 }
 
 TEST(QueryMetricsIntegration, NoRegistryDoesNotBreakOperations) {
-    std::string endpoint = std::getenv("YDB_ENDPOINT");
-    std::string database = std::getenv("YDB_DATABASE");
+    std::string endpoint = GetEnvOrEmpty("YDB_ENDPOINT");
+    std::string database = GetEnvOrEmpty("YDB_DATABASE");
 
     auto driverConfig = TDriverConfig()
         .SetEndpoint(endpoint)
         .SetDatabase(database)
-        .SetAuthToken(std::getenv("YDB_TOKEN") ? std::getenv("YDB_TOKEN") : "");
+        .SetAuthToken(GetEnvOrEmpty("YDB_TOKEN"));
 
     TDriver driver(driverConfig);
     TQueryClient client(driver);
