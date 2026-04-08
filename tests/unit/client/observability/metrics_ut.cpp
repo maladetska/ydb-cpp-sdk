@@ -11,6 +11,10 @@ using namespace NYdb::NMetrics;
 using namespace NYdb::NTests;
 using namespace NYdb::NSdkStats;
 
+namespace {
+    constexpr const char kTestDbNamespace[] = "/Root/testdb";
+} // namespace
+
 // ---------------------------------------------------------------------------
 // TRequestMetrics (shared logic)
 // ---------------------------------------------------------------------------
@@ -19,30 +23,34 @@ class RequestMetricsTest : public ::testing::Test {
 protected:
     void SetUp() override {
         Registry = std::make_shared<TFakeMetricRegistry>();
-        OpCollector = TStatCollector::TClientOperationStatCollector(nullptr, "", "", Registry);
+        OpCollector = TStatCollector::TClientOperationStatCollector(
+            nullptr, kTestDbNamespace, "", Registry);
     }
 
     std::shared_ptr<TFakeCounter> RequestCounter(const std::string& op) {
         return Registry->GetCounter("db.client.operation.requests", {
             {"db.system.name", "ydb"},
+            {"db.namespace", kTestDbNamespace},
             {"db.operation.name", op},
-            {"ydb.client.api", "unspecified"},
+            {"ydb.client.api", "Unspecified"},
         });
     }
 
     std::shared_ptr<TFakeCounter> ErrorCounter(const std::string& op) {
         return Registry->GetCounter("db.client.operation.errors", {
             {"db.system.name", "ydb"},
+            {"db.namespace", kTestDbNamespace},
             {"db.operation.name", op},
-            {"ydb.client.api", "unspecified"},
+            {"ydb.client.api", "Unspecified"},
         });
     }
 
     std::shared_ptr<TFakeHistogram> DurationHistogram(const std::string& op, EStatus status) {
         TLabels labels = {
             {"db.system.name", "ydb"},
+            {"db.namespace", kTestDbNamespace},
             {"db.operation.name", op},
-            {"ydb.client.api", "unspecified"},
+            {"ydb.client.api", "Unspecified"},
             {"db.response.status_code", ToString(status)},
         };
         if (status != EStatus::SUCCESS) {
@@ -200,6 +208,64 @@ TEST_F(RequestMetricsTest, AllErrorStatusesIncrementErrorCounter) {
     EXPECT_EQ(errors->Get(), static_cast<int64_t>(errorStatuses.size()));
 }
 
+TEST(RequestMetricsDbNamespaceTest, DifferentNamespacesAreSeparateMetricSeries) {
+    auto registry = std::make_shared<TFakeMetricRegistry>();
+    TStatCollector::TClientOperationStatCollector collectorA(nullptr, "/db/alpha", "", registry);
+    TStatCollector::TClientOperationStatCollector collectorB(nullptr, "/db/beta", "", registry);
+
+    {
+        TRequestMetrics m(&collectorA, "GetSession", TLog());
+        m.End(EStatus::SUCCESS);
+    }
+    {
+        TRequestMetrics m(&collectorB, "GetSession", TLog());
+        m.End(EStatus::SUCCESS);
+    }
+
+    auto labelsAlpha = [](const char* op) {
+        return NMetrics::TLabels{
+            {"db.system.name", "ydb"},
+            {"db.namespace", "/db/alpha"},
+            {"db.operation.name", op},
+            {"ydb.client.api", "Unspecified"},
+        };
+    };
+    auto labelsBeta = [](const char* op) {
+        return NMetrics::TLabels{
+            {"db.system.name", "ydb"},
+            {"db.namespace", "/db/beta"},
+            {"db.operation.name", op},
+            {"ydb.client.api", "Unspecified"},
+        };
+    };
+
+    auto reqAlpha = registry->GetCounter("db.client.operation.requests", labelsAlpha("GetSession"));
+    auto reqBeta = registry->GetCounter("db.client.operation.requests", labelsBeta("GetSession"));
+    ASSERT_NE(reqAlpha, nullptr);
+    ASSERT_NE(reqBeta, nullptr);
+    EXPECT_EQ(reqAlpha->Get(), 1);
+    EXPECT_EQ(reqBeta->Get(), 1);
+
+    auto durAlpha = registry->GetHistogram(
+        "db.client.operation.duration",
+        [&] {
+            auto l = labelsAlpha("GetSession");
+            l["db.response.status_code"] = ToString(EStatus::SUCCESS);
+            return l;
+        }());
+    auto durBeta = registry->GetHistogram(
+        "db.client.operation.duration",
+        [&] {
+            auto l = labelsBeta("GetSession");
+            l["db.response.status_code"] = ToString(EStatus::SUCCESS);
+            return l;
+        }());
+    ASSERT_NE(durAlpha, nullptr);
+    ASSERT_NE(durBeta, nullptr);
+    EXPECT_EQ(durAlpha->Count(), 1u);
+    EXPECT_EQ(durBeta->Count(), 1u);
+}
+
 TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
     auto registry = std::make_shared<TFakeMetricRegistry>();
     TStatCollector::TClientOperationStatCollector collector(nullptr, "", "Query", registry);
@@ -212,8 +278,9 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
             "db.client.operation.requests",
             {
                 {"db.system.name", "ydb"},
+                {"db.namespace", ""},
                 {"db.operation.name", "ExecuteQuery"},
-                {"ydb.client.api", "query"},
+                {"ydb.client.api", "Query"},
             }
         ),
         nullptr
@@ -223,8 +290,9 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
             "db.client.operation.errors",
             {
                 {"db.system.name", "ydb"},
+                {"db.namespace", ""},
                 {"db.operation.name", "ExecuteQuery"},
-                {"ydb.client.api", "query"},
+                {"ydb.client.api", "Query"},
             }
         ),
         nullptr
@@ -234,8 +302,9 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
             "db.client.operation.duration",
             {
                 {"db.system.name", "ydb"},
+                {"db.namespace", ""},
                 {"db.operation.name", "ExecuteQuery"},
-                {"ydb.client.api", "query"},
+                {"ydb.client.api", "Query"},
                 {"db.response.status_code", ToString(EStatus::SUCCESS)},
             }
         ),
@@ -255,8 +324,9 @@ TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
             "db.client.operation.requests",
             {
                 {"db.system.name", "ydb"},
+                {"db.namespace", ""},
                 {"db.operation.name", "ExecuteDataQuery"},
-                {"ydb.client.api", "table"}
+                {"ydb.client.api", "Table"},
             }
         ),
         nullptr
@@ -266,8 +336,9 @@ TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
             "db.client.operation.errors",
             {
                 {"db.system.name", "ydb"},
+                {"db.namespace", ""},
                 {"db.operation.name", "ExecuteDataQuery"},
-                {"ydb.client.api", "table"}
+                {"ydb.client.api", "Table"},
             }
         ),
         nullptr
@@ -277,8 +348,9 @@ TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
             "db.client.operation.duration",
             {
                 {"db.system.name", "ydb"},
+                {"db.namespace", ""},
                 {"db.operation.name", "ExecuteDataQuery"},
-                {"ydb.client.api", "table"},
+                {"ydb.client.api", "Table"},
                 {"db.response.status_code", ToString(EStatus::SUCCESS)},
             }
         ),

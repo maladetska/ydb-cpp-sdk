@@ -22,7 +22,7 @@ TTableClient::TImpl::TImpl(std::shared_ptr<TGRpcConnectionsImpl>&& connections, 
     , Settings_(settings)
     , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
 {
-    auto clientCollector = DbDriverState_->StatCollector.GetClientStatCollector("Table", Connections_->GetExternalMetricRegistry());
+    auto clientCollector = DbDriverState_->StatCollector.GetClientStatCollector("Table");
     OperationStatCollector_ = clientCollector.OperationStatCollector;
 
     if (auto traceProvider = Connections_->GetTraceProvider()) {

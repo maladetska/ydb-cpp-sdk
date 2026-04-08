@@ -589,7 +589,7 @@ public:
     ::NMonitoring::TMetricRegistry* GetMetricRegistry() override;
     void RegisterExtension(IExtension* extension);
     void RegisterExtensionApi(IExtensionApi* api);
-    std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const;
+    std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const override;
     std::shared_ptr<NTrace::ITraceProvider> GetTraceProvider() const;
 
     void SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb);

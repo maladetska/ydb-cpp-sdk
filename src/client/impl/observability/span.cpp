@@ -1,7 +1,6 @@
 #include "span.h"
 
 #include <src/client/impl/internal/common/log_lazy.h>
-#include <src/client/impl/internal/common/ydb_client_api.h>
 
 #include <util/string/cast.h>
 
@@ -12,6 +11,10 @@ namespace NYdb::inline V3::NObservability {
 namespace {
 
 constexpr int DefaultGrpcPort = 2135;
+
+std::string YdbClientApiAttributeValue(const std::string& clientType) noexcept {
+    return clientType.empty() ? std::string("Unspecified") : clientType;
+}
 
 void ParseEndpoint(const std::string& endpoint, std::string& host, int& port) {
     port = DefaultGrpcPort;
@@ -68,6 +71,7 @@ void SafeLogRequestSpanError(TLog& log, const char* message, std::exception_ptr 
 TRequestSpan::TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
     , const std::string& requestName
     , const std::string& endpoint
+    , const std::string& database
     , const TLog& log
     , const std::string& ydbClientType
 ) : Log_(log) {
@@ -85,6 +89,7 @@ TRequestSpan::TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
             return;
         }
         Span_->SetAttribute("db.system.name", "ydb");
+        Span_->SetAttribute("db.namespace", database);
         Span_->SetAttribute("db.operation.name", requestName);
         Span_->SetAttribute("ydb.client.api", YdbClientApiAttributeValue(ydbClientType));
         Span_->SetAttribute("server.address", host);

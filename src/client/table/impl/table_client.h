@@ -345,6 +345,7 @@ private:
             Tracer_,
             operationName,
             DbDriverState_->DiscoveryEndpoint,
+            DbDriverState_->Database,
             DbDriverState_->Log
         );
     }

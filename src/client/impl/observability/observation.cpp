@@ -7,8 +7,9 @@ TRequestObservation::TRequestObservation(const std::string& ydbClientType
     , std::shared_ptr<NTrace::ITracer> tracer
     , const std::string& operationName
     , const std::string& discoveryEndpoint
+    , const std::string& database
     , const TLog& log
-) : Span_(std::make_shared<TRequestSpan>(std::move(tracer), operationName, discoveryEndpoint, log, ydbClientType))
+) : Span_(std::make_shared<TRequestSpan>(std::move(tracer), operationName, discoveryEndpoint, database, log, ydbClientType))
     , Metrics_(std::make_shared<TRequestMetrics>(operationCollector, operationName, log))
 {}
 

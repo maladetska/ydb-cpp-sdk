@@ -17,6 +17,7 @@ public:
     TRequestSpan(std::shared_ptr<NTrace::ITracer> tracer
         , const std::string& requestName
         , const std::string& endpoint
+        , const std::string& database
         , const TLog& log
         , const std::string& ydbClientType = {}
     );

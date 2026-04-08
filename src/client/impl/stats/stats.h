@@ -3,7 +3,6 @@
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/metrics/metrics.h>
 
-#include <src/client/impl/internal/common/ydb_client_api.h>
 #include <src/library/grpc/client/grpc_client_low.h>
 #include <library/cpp/monlib/metrics/metric_registry.h>
 #include <library/cpp/monlib/metrics/histogram_collector.h>
@@ -15,6 +14,10 @@
 
 namespace NYdb::inline V3 {
 namespace NSdkStats {
+
+inline std::string YdbClientApiAttributeValue(const std::string& clientType) {
+    return clientType.empty() ? std::string("Unspecified") : clientType;
+}
 
 // works only for case normal (foo_bar) underscore
 
@@ -255,9 +258,10 @@ public:
                 })->Inc();
             }
             if (ExternalRegistry_) {
-                const std::string clientApi = NObservability::YdbClientApiAttributeValue(ClientType_);
+                const std::string clientApi = YdbClientApiAttributeValue(ClientType_);
                 NMetrics::TLabels labels = {
                     {"db.system.name", "ydb"},
+                    {"db.namespace", Database_},
                     {"db.operation.name", operationName},
                     {"ydb.client.api", clientApi},
                 };
@@ -290,9 +294,10 @@ public:
                 })->Inc();
             }
             if (ExternalRegistry_) {
-                const std::string clientApi = NObservability::YdbClientApiAttributeValue(ClientType_);
+                const std::string clientApi = YdbClientApiAttributeValue(ClientType_);
                 NMetrics::TLabels labels = {
                     {"db.system.name", "ydb"},
+                    {"db.namespace", Database_},
                     {"db.operation.name", operationName},
                     {"ydb.client.api", clientApi},
                 };
@@ -318,8 +323,9 @@ public:
             if (ExternalRegistry_) {
                 NMetrics::TLabels labels = {
                     {"db.system.name", "ydb"},
+                    {"db.namespace", Database_},
                     {"db.operation.name", operationName},
-                    {"ydb.client.api", NObservability::YdbClientApiAttributeValue(ClientType_)},
+                    {"ydb.client.api", YdbClientApiAttributeValue(ClientType_)},
                     {"db.response.status_code", TStringBuilder() << status},
                 };
                 if (status != EStatus::SUCCESS) {
@@ -369,9 +375,12 @@ public:
         TClientOperationStatCollector OperationStatCollector;
     };
 
-    TStatCollector(const std::string& database, TMetricRegistry* sensorsRegistry)
-        : Database_(database)
+    TStatCollector(const std::string& database
+        , TMetricRegistry* sensorsRegistry
+        , std::shared_ptr<NMetrics::IMetricRegistry> externalMetricRegistry = {}
+    ) : Database_(database)
         , DatabaseLabel_({"database", database})
+        , ExternalMetricRegistry_(std::move(externalMetricRegistry))
     {
         if (sensorsRegistry) {
             SetMetricRegistry(sensorsRegistry);
@@ -474,10 +483,7 @@ public:
         return TSessionPoolStatCollector();
     }
 
-    TClientStatCollector GetClientStatCollector(
-        const std::string& clientType,
-        std::shared_ptr<NMetrics::IMetricRegistry> externalMetricRegistry = {})
-    {
+    TClientStatCollector GetClientStatCollector(const std::string& clientType) {
         if (auto registry = MetricRegistryPtr_.Get()) {
             ::NMonitoring::TRate* cacheMiss = nullptr;
             ::NMonitoring::TRate* sessionRemovedDueBalancing = nullptr;
@@ -499,12 +505,12 @@ public:
 
             return TClientStatCollector(cacheMiss, querySize, paramsSize, sessionRemovedDueBalancing, requestMigrated,
                 TClientRetryOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType),
-                TClientOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType, std::move(externalMetricRegistry)));
+                TClientOperationStatCollector(MetricRegistryPtr_.Get(), Database_, clientType, ExternalMetricRegistry_));
         }
 
         return TClientStatCollector(nullptr, nullptr, nullptr, nullptr, nullptr,
             TClientRetryOperationStatCollector(nullptr, Database_, clientType),
-            TClientOperationStatCollector(nullptr, Database_, clientType, std::move(externalMetricRegistry)));
+            TClientOperationStatCollector(nullptr, Database_, clientType, ExternalMetricRegistry_));
     }
 
     bool IsCollecting() {
@@ -522,6 +528,7 @@ public:
 private:
     const std::string Database_;
     const ::NMonitoring::TLabel DatabaseLabel_;
+    std::shared_ptr<NMetrics::IMetricRegistry> ExternalMetricRegistry_;
     TAtomicPointer<TMetricRegistry> MetricRegistryPtr_;
     TAtomicCounter<::NMonitoring::TRate> DiscoveryDuePessimization_;
     TAtomicCounter<::NMonitoring::TRate> DiscoveryDueExpiration_;

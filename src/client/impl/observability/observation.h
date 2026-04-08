@@ -15,6 +15,7 @@ public:
         , std::shared_ptr<NTrace::ITracer> tracer
         , const std::string& operationName
         , const std::string& discoveryEndpoint
+        , const std::string& database
         , const TLog& log
     );
 

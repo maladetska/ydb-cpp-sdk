@@ -68,7 +68,7 @@ public:
         , Settings_(settings)
         , SessionPool_(Settings_.SessionPoolSettings_.MaxActiveSessions_)
     {
-        SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query", Connections_->GetExternalMetricRegistry()));
+        SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query"));
         SessionPool_.SetStatCollector(DbDriverState_->StatCollector.GetSessionPoolStatCollector("Query"));
 
         if (auto traceProvider = Connections_->GetTraceProvider()) {
@@ -610,6 +610,7 @@ private:
             Tracer_,
             operationName,
             DbDriverState_->DiscoveryEndpoint,
+            DbDriverState_->Database,
             DbDriverState_->Log
         );
     }
