@@ -440,7 +440,7 @@ std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetr
     return MetricRegistry_;
 }
 
-std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
+std::shared_ptr<NTrace::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
     return TraceProvider_;
 }
 

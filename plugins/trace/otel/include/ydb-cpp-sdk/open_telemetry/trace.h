@@ -5,9 +5,9 @@
 #include <opentelemetry/nostd/shared_ptr.h>
 #include <opentelemetry/trace/tracer_provider.h>
 
-namespace NYdb::inline V3::NMetrics {
+namespace NYdb::inline V3::NTrace {
 
 std::shared_ptr<ITraceProvider> CreateOtelTraceProvider(
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider> tracerProvider);
 
-} // namespace NYdb::NMetrics
+} // namespace NYdb::NTrace

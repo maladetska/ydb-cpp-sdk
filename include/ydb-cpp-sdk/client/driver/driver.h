@@ -159,7 +159,7 @@ public:
     TDriverConfig& SetMetricRegistry(std::shared_ptr<NMetrics::IMetricRegistry> registry);
 
     //! Set external trace provider implementation.
-    TDriverConfig& SetTraceProvider(std::shared_ptr<NMetrics::ITraceProvider> provider);
+    TDriverConfig& SetTraceProvider(std::shared_ptr<NTrace::ITraceProvider> provider);
 
 private:
     class TImpl;
