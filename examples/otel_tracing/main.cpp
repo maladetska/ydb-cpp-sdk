@@ -23,6 +23,7 @@
 #include <opentelemetry/trace/provider.h>
 #include <opentelemetry/trace/scope.h>
 
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -41,6 +42,8 @@ struct TConfig {
     std::string Database = "/local";
     std::string OtlpEndpoint = "http://localhost:4328";
     int Iterations = 20;
+    int RetryWorkers = 6;
+    int RetryOps = 30;
 };
 
 nostd::shared_ptr<opentelemetry::trace::TracerProvider> InitTracing(const TConfig& cfg) {
@@ -247,6 +250,113 @@ void RunTableWorkload(NTable::TTableClient& client, int iterations) {
     }
 }
 
+void RunRetryWorkload(NQuery::TQueryClient& client, int workers, int opsPerWorker) {
+    std::cout << "\n=== Retry workload (SERIALIZABLE conflicts) ==="
+              << " workers=" << workers << " ops=" << opsPerWorker << std::endl;
+
+    auto tracer = GetAppTracer();
+
+    {
+        auto seedSpan = tracer->StartSpan("RetryWorkload.Seed");
+        auto scope = opentelemetry::trace::Scope(seedSpan);
+
+        ThrowOnError(client.RetryQuerySync([](NQuery::TSession session) {
+            return session.ExecuteQuery(R"(
+                UPSERT INTO otel_demo (id, value) VALUES (9999u, "seed")
+            )", NQuery::TTxControl::BeginTx(NQuery::TTxSettings::SerializableRW()).CommitTx()).GetValueSync();
+        }));
+    }
+
+    std::atomic<int> conflicts{0};
+    std::atomic<int> successes{0};
+    std::vector<std::thread> threads;
+    threads.reserve(workers);
+
+    for (int w = 0; w < workers; ++w) {
+        threads.emplace_back([&, w]() {
+            auto workerTracer = GetAppTracer();
+            for (int i = 0; i < opsPerWorker; ++i) {
+                auto iterSpan = workerTracer->StartSpan("RetryWorkload.Op");
+                auto scope = opentelemetry::trace::Scope(iterSpan);
+                iterSpan->SetAttribute("worker", static_cast<int64_t>(w));
+                iterSpan->SetAttribute("op", static_cast<int64_t>(i));
+
+                auto status = client.RetryQuerySync(
+                    [w, i, &conflicts](NQuery::TQueryClient client) -> TStatus {
+                        auto sessionRes = client.GetSession().GetValueSync();
+                        if (!sessionRes.IsSuccess()) {
+                            return sessionRes;
+                        }
+                        auto session = sessionRes.GetSession();
+
+                        auto beginRes = session.BeginTransaction(
+                            NQuery::TTxSettings::SerializableRW()).GetValueSync();
+                        if (!beginRes.IsSuccess()) {
+                            return beginRes;
+                        }
+                        auto tx = beginRes.GetTransaction();
+
+                        auto readRes = session.ExecuteQuery(R"(
+                            SELECT value FROM otel_demo WHERE id = 9999u
+                        )", NQuery::TTxControl::Tx(tx)).GetValueSync();
+                        if (!readRes.IsSuccess()) {
+                            if (readRes.GetStatus() == EStatus::ABORTED) {
+                                conflicts.fetch_add(1);
+                            }
+                            return readRes;
+                        }
+
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(5 + (w * 7 + i * 3) % 20));
+
+                        auto params = TParamsBuilder()
+                            .AddParam("$v").Utf8("w" + std::to_string(w)
+                                                  + "_i" + std::to_string(i)).Build()
+                            .Build();
+
+                        auto writeRes = session.ExecuteQuery(R"(
+                            DECLARE $v AS Utf8;
+                            UPSERT INTO otel_demo (id, value) VALUES (9999u, $v)
+                        )", NQuery::TTxControl::Tx(tx), params).GetValueSync();
+                        if (!writeRes.IsSuccess()) {
+                            if (writeRes.GetStatus() == EStatus::ABORTED) {
+                                conflicts.fetch_add(1);
+                            }
+                            return writeRes;
+                        }
+
+                        auto commitRes = tx.Commit().GetValueSync();
+                        if (!commitRes.IsSuccess()
+                            && commitRes.GetStatus() == EStatus::ABORTED) {
+                            conflicts.fetch_add(1);
+                        }
+                        return commitRes;
+                    });
+
+                if (status.IsSuccess()) {
+                    successes.fetch_add(1);
+                    iterSpan->SetStatus(opentelemetry::trace::StatusCode::kOk);
+                } else {
+                    iterSpan->SetStatus(opentelemetry::trace::StatusCode::kError,
+                                        std::string(ToString(status.GetStatus())));
+                    std::cerr << "  [retry-wl] worker=" << w << " op=" << i
+                              << " final_status=" << static_cast<int>(status.GetStatus())
+                              << std::endl;
+                }
+            }
+        });
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    std::cout << "  Retry workload done."
+              << " successes=" << successes.load()
+              << " observed_aborts=" << conflicts.load()
+              << " (each abort triggers one SDK retry attempt)" << std::endl;
+}
+
 int main(int argc, char** argv) {
     TConfig cfg;
 
@@ -259,6 +369,10 @@ int main(int argc, char** argv) {
         .DefaultValue(cfg.OtlpEndpoint).StoreResult(&cfg.OtlpEndpoint);
     opts.AddLongOption('n', "iterations", "Number of iterations")
         .DefaultValue(std::to_string(cfg.Iterations)).StoreResult(&cfg.Iterations);
+    opts.AddLongOption("retry-workers", "Concurrent workers for retry workload (0 to skip)")
+        .DefaultValue(std::to_string(cfg.RetryWorkers)).StoreResult(&cfg.RetryWorkers);
+    opts.AddLongOption("retry-ops", "Operations per retry worker")
+        .DefaultValue(std::to_string(cfg.RetryOps)).StoreResult(&cfg.RetryOps);
 
     NLastGetopt::TOptsParseResult parsedOpts(&opts, argc, argv);
 
@@ -293,6 +407,10 @@ int main(int argc, char** argv) {
     try {
         RunQueryWorkload(queryClient, cfg.Iterations);
         RunTableWorkload(tableClient, cfg.Iterations);
+
+        if (cfg.RetryWorkers > 0 && cfg.RetryOps > 0) {
+            RunRetryWorkload(queryClient, cfg.RetryWorkers, cfg.RetryOps);
+        }
 
         std::cout << "\n=== Cleanup ===" << std::endl;
         ThrowOnError(queryClient.RetryQuerySync([](NQuery::TSession session) {
