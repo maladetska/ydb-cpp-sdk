@@ -128,3 +128,16 @@ add_ydb_test(NAME client-ydb_query_spans_ut GTEST
   LABELS
     unit
 )
+
+add_ydb_test(NAME client-ydb_table_spans_ut GTEST
+  INCLUDE_DIRS
+    ${YDB_SDK_SOURCE_DIR}
+  SOURCES
+    table/table_spans_ut.cpp
+  LINK_LIBRARIES
+    yutil
+    client-ydb_table-impl
+    client-trace
+  LABELS
+    unit
+)

@@ -103,14 +103,16 @@ public:
         CollectQuerySize(query);
         CollectParamsSize(params ? &params->GetProtoMap() : nullptr);
 
-        auto obs = MakeObservation("ExecuteQuery");
+        auto obs = MakeObservation("ydb.ExecuteQuery");
+        std::string sessionEndpoint = session.has_value() ? session->SessionImpl_->GetEndpoint() : std::string{};
 
         return TExecQueryImpl::ExecuteQuery(
             Connections_, DbDriverState_, query, txControl, params, settings, session)
-            .Apply([obs](TAsyncExecuteQueryResult future) {
+            .Apply([obs, sessionEndpoint = std::move(sessionEndpoint)](TAsyncExecuteQueryResult future) {
                 try {
                     auto result = future.GetValue();
-                    obs->SetPeerEndpoint(result.GetEndpoint());
+                    const auto& resultEndpoint = result.GetEndpoint();
+                    obs->SetPeerEndpoint(!resultEndpoint.empty() ? resultEndpoint : sessionEndpoint);
                     obs->End(result.GetStatus());
                     return result;
                 } catch (...) {
@@ -184,7 +186,7 @@ public:
 
         auto promise = NThreading::NewPromise<TStatus>();
 
-        auto obs = MakeObservation("Rollback");
+        auto obs = MakeObservation("ydb.Rollback");
 
         auto responseCb = [promise, session, obs]
             (Ydb::Query::RollbackTransactionResponse* response, TPlainStatus status) mutable {
@@ -232,7 +234,7 @@ public:
 
         auto promise = NThreading::NewPromise<TCommitTransactionResult>();
 
-        auto obs = MakeObservation("Commit");
+        auto obs = MakeObservation("ydb.Commit");
 
         auto responseCb = [promise, session, obs]
             (Ydb::Query::CommitTransactionResponse* response, TPlainStatus status) mutable {
@@ -491,6 +493,7 @@ public:
                 );
 
                 if (Observation) {
+                    Observation->SetPeerEndpoint(session->GetEndpoint());
                     Observation->End(EStatus::SUCCESS);
                 }
                 ScheduleReply(std::move(val));
@@ -533,7 +536,7 @@ public:
             std::shared_ptr<TQueryObservation> Observation;
         };
 
-        auto obs = MakeObservation("GetSession");
+        auto obs = MakeObservation("ydb.CreateSession");
         auto ctx = std::make_unique<TQueryClientGetSessionCtx>(shared_from_this(), settings, obs);
         auto future = ctx->GetFuture();
         SessionPool_.GetSession(std::move(ctx));
@@ -578,14 +581,22 @@ public:
             ), NSessionPool::PERIODIC_ACTION_INTERVAL);
     }
 
-    std::shared_ptr<NObservability::TRequestSpan> CreateRetrySpan(const std::string& operationName) {
-        return std::make_shared<NObservability::TRequestSpan>(
+    std::shared_ptr<NObservability::TRequestSpan> CreateRetryRootSpan() {
+        return NObservability::TRequestSpan::CreateForClientRetry(
+            "Query",
             Tracer_,
-            operationName,
-            DbDriverState_->DiscoveryEndpoint,
-            DbDriverState_->Database,
-            DbDriverState_->Log,
-            "Query");
+            DbDriverState_
+        );
+    }
+
+    std::shared_ptr<NObservability::TRequestSpan> CreateRetryAttemptSpan(std::uint32_t attempt, std::int64_t backoffMs) {
+        return NObservability::TRequestSpan::CreateForRetryAttempt(
+            "Query",
+            Tracer_,
+            DbDriverState_,
+            attempt,
+            backoffMs
+        );
     }
 
     void CollectRetryStatAsync(EStatus status) {
@@ -619,9 +630,7 @@ private:
             &OperationStatCollector_,
             Tracer_,
             operationName,
-            DbDriverState_->DiscoveryEndpoint,
-            DbDriverState_->Database,
-            DbDriverState_->Log
+            DbDriverState_
         );
     }
 
@@ -717,21 +726,15 @@ TAsyncStatus TQueryClient::RetryQuery(TQueryWithoutSessionFunc&& queryFunc, TRet
 }
 
 TStatus TQueryClient::RetryQuerySync(const TQuerySyncFunc& queryFunc, TRetryOperationSettings settings) {
-    auto parentSpan = Impl_->CreateRetrySpan("RetryQuery");
-    auto scope = parentSpan->Activate();
-    NRetry::Sync::TRetryWithSession ctx(*this, queryFunc, settings);
-    auto status = ctx.Execute();
-    parentSpan->End(status.GetStatus());
-    return status;
+    return NRetry::Sync::RunSyncRetryWithParentSpan(
+        Impl_,
+        NRetry::Sync::TRetryWithSession(*this, queryFunc, settings));
 }
 
 TStatus TQueryClient::RetryQuerySync(const TQueryWithoutSessionSyncFunc& queryFunc, TRetryOperationSettings settings) {
-    auto parentSpan = Impl_->CreateRetrySpan("RetryQuery");
-    auto scope = parentSpan->Activate();
-    NRetry::Sync::TRetryWithoutSession ctx(*this, queryFunc, settings);
-    auto status = ctx.Execute();
-    parentSpan->End(status.GetStatus());
-    return status;
+    return NRetry::Sync::RunSyncRetryWithParentSpan(
+        Impl_,
+        NRetry::Sync::TRetryWithoutSession(*this, queryFunc, settings));
 }
 
 TAsyncExecuteQueryResult TQueryClient::RetryQuery(const std::string& query, const TTxControl& txControl,

@@ -61,7 +61,7 @@ cmake --build . --target otel_tracing_example -j$(nproc)
 
 ```bash
 ./examples/otel_tracing/otel_tracing_example \
-  --endpoint grpc://localhost:2136 \
+  --endpoint localhost:2136 \
   --database /local \
   --otlp http://localhost:4328 \
   --iterations 20

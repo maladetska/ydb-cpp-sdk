@@ -262,6 +262,12 @@ int main(int argc, char** argv) {
 
     NLastGetopt::TOptsParseResult parsedOpts(&opts, argc, argv);
 
+    if (cfg.Endpoint.rfind("grpc://", 0) == 0) {
+        cfg.Endpoint.erase(0, 7);
+    } else if (cfg.Endpoint.rfind("grpcs://", 0) == 0) {
+        cfg.Endpoint.erase(0, 8);
+    }
+
     std::cout << "Initializing OpenTelemetry..." << std::endl;
     std::cout << "  OTLP endpoint: " << cfg.OtlpEndpoint << std::endl;
 

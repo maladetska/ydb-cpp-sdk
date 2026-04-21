@@ -51,9 +51,9 @@ protected:
             {"db.namespace", kTestDbNamespace},
             {"db.operation.name", op},
             {"ydb.client.api", "Unspecified"},
-            {"db.response.status_code", ToString(status)},
         };
         if (status != EStatus::SUCCESS) {
+            labels["db.response.status_code"] = ToString(status);
             labels["error.type"] = ToString(status);
         }
         return Registry->GetHistogram("db.client.operation.duration", labels);
@@ -248,18 +248,10 @@ TEST(RequestMetricsDbNamespaceTest, DifferentNamespacesAreSeparateMetricSeries) 
 
     auto durAlpha = registry->GetHistogram(
         "db.client.operation.duration",
-        [&] {
-            auto l = labelsAlpha("GetSession");
-            l["db.response.status_code"] = ToString(EStatus::SUCCESS);
-            return l;
-        }());
+        labelsAlpha("GetSession"));
     auto durBeta = registry->GetHistogram(
         "db.client.operation.duration",
-        [&] {
-            auto l = labelsBeta("GetSession");
-            l["db.response.status_code"] = ToString(EStatus::SUCCESS);
-            return l;
-        }());
+        labelsBeta("GetSession"));
     ASSERT_NE(durAlpha, nullptr);
     ASSERT_NE(durBeta, nullptr);
     EXPECT_EQ(durAlpha->Count(), 1u);
@@ -305,7 +297,6 @@ TEST(RequestMetricsClientAliasesTest, QueryOperationsUseOtelStandardMetrics) {
                 {"db.namespace", ""},
                 {"db.operation.name", "ExecuteQuery"},
                 {"ydb.client.api", "Query"},
-                {"db.response.status_code", ToString(EStatus::SUCCESS)},
             }
         ),
         nullptr
@@ -351,7 +342,6 @@ TEST(RequestMetricsClientAliasesTest, TableOperationsUseOtelStandardMetrics) {
                 {"db.namespace", ""},
                 {"db.operation.name", "ExecuteDataQuery"},
                 {"ydb.client.api", "Table"},
-                {"db.response.status_code", ToString(EStatus::SUCCESS)},
             }
         ),
         nullptr

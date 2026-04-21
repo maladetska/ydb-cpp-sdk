@@ -2,6 +2,7 @@
 
 #include <opentelemetry/common/attribute_value.h>
 #include <opentelemetry/trace/scope.h>
+#include <opentelemetry/trace/span.h>
 #include <opentelemetry/trace/tracer.h>
 #include <opentelemetry/trace/tracer_provider.h>
 
@@ -67,6 +68,30 @@ public:
 
     std::unique_ptr<IScope> Activate() override {
         return std::make_unique<TOtelScope>(Span_);
+    }
+
+    void RecordException(const std::string& type
+        , const std::string& message
+        , const std::string& stacktrace
+    ) override {
+        std::vector<std::pair<otel_nostd::string_view, otel_common::AttributeValue>> attrs;
+        attrs.reserve(3);
+        attrs.emplace_back(
+            otel_nostd::string_view("exception.type"),
+            otel_common::AttributeValue(otel_nostd::string_view(type))
+        );
+        attrs.emplace_back(
+            otel_nostd::string_view("exception.message"),
+            otel_common::AttributeValue(otel_nostd::string_view(message))
+        );
+        if (!stacktrace.empty()) {
+            attrs.emplace_back(
+                otel_nostd::string_view("exception.stacktrace"),
+                otel_common::AttributeValue(otel_nostd::string_view(stacktrace))
+            );
+        }
+        Span_->AddEvent("exception", attrs);
+        Span_->SetStatus(otel_trace::StatusCode::kError, message);
     }
 
 private:

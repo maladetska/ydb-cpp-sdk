@@ -28,6 +28,21 @@ public:
     virtual void SetAttribute(const std::string& key, int64_t value) = 0;
     virtual void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) = 0;
     virtual std::unique_ptr<IScope> Activate() = 0;
+
+    virtual void RecordException(
+        const std::string& type,
+        const std::string& message,
+        const std::string& stacktrace = {}
+    ) {
+        std::map<std::string, std::string> attrs{
+            {"exception.type", type},
+            {"exception.message", message},
+        };
+        if (!stacktrace.empty()) {
+            attrs.emplace("exception.stacktrace", stacktrace);
+        }
+        AddEvent("exception", attrs);
+    }
 };
 
 class ITracer {
