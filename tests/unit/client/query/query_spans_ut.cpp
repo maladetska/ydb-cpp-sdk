@@ -1,12 +1,27 @@
-#include <src/client/query/impl/query_spans.h>
+#include <src/client/impl/observability/span.h>
 #include <tests/common/fake_trace_provider.h>
+
+#include <library/cpp/logger/log.h>
 
 #include <gtest/gtest.h>
 
 using namespace NYdb;
-using namespace NYdb::NQuery;
-using namespace NYdb::NMetrics;
 using namespace NYdb::NTests;
+
+namespace {
+
+constexpr const char kTestDbNamespace[] = "/Root/testdb";
+
+NYdb::NObservability::TRequestSpan MakeRequestSpan(
+    std::shared_ptr<TFakeTracer> tracer,
+    const std::string& operationName,
+    const std::string& endpoint)
+{
+    return NYdb::NObservability::TRequestSpan(
+        std::move(tracer), operationName, endpoint, kTestDbNamespace, TLog(), "Query");
+}
+
+} // namespace
 
 class QuerySpanTest : public ::testing::Test {
 protected:
@@ -18,23 +33,23 @@ protected:
 };
 
 TEST_F(QuerySpanTest, SpanNameFormat) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "localhost:2135");
     span.End(EStatus::SUCCESS);
 
     ASSERT_EQ(Tracer->SpanCount(), 1u);
-    EXPECT_EQ(Tracer->GetLastSpanRecord().Name, "ydb.ExecuteQuery");
+    EXPECT_EQ(Tracer->GetLastSpanRecord().Name, "ExecuteQuery");
 }
 
 TEST_F(QuerySpanTest, SpanKindIsClient) {
-    TQuerySpan span(Tracer, "CreateSession", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "CreateSession", "localhost:2135");
     span.End(EStatus::SUCCESS);
 
     ASSERT_EQ(Tracer->SpanCount(), 1u);
-    EXPECT_EQ(Tracer->GetLastSpanRecord().Kind, ESpanKind::CLIENT);
+    EXPECT_EQ(Tracer->GetLastSpanRecord().Kind, NTrace::ESpanKind::CLIENT);
 }
 
 TEST_F(QuerySpanTest, DbSystemAttribute) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "localhost:2135");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -42,8 +57,19 @@ TEST_F(QuerySpanTest, DbSystemAttribute) {
     EXPECT_EQ(fakeSpan->GetStringAttribute("db.system.name"), "ydb");
 }
 
+TEST_F(QuerySpanTest, DbNamespaceAndClientApi) {
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "localhost:2135");
+    span.End(EStatus::SUCCESS);
+
+    auto fakeSpan = Tracer->GetLastSpan();
+    ASSERT_NE(fakeSpan, nullptr);
+    EXPECT_EQ(fakeSpan->GetStringAttribute("db.namespace"), kTestDbNamespace);
+    EXPECT_EQ(fakeSpan->GetStringAttribute("ydb.client.api"), "Query");
+    EXPECT_EQ(fakeSpan->GetStringAttribute("db.operation.name"), "ExecuteQuery");
+}
+
 TEST_F(QuerySpanTest, ServerAddressAndPort) {
-    TQuerySpan span(Tracer, "Commit", "ydb.server:2135");
+    auto span = MakeRequestSpan(Tracer, "Commit", "ydb.server:2135");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -53,7 +79,7 @@ TEST_F(QuerySpanTest, ServerAddressAndPort) {
 }
 
 TEST_F(QuerySpanTest, ServerAddressCustomPort) {
-    TQuerySpan span(Tracer, "Rollback", "myhost:9090");
+    auto span = MakeRequestSpan(Tracer, "Rollback", "myhost:9090");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -63,7 +89,7 @@ TEST_F(QuerySpanTest, ServerAddressCustomPort) {
 }
 
 TEST_F(QuerySpanTest, ServerAddressNoPortDefaultsTo2135) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "myhost");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "myhost");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -73,7 +99,7 @@ TEST_F(QuerySpanTest, ServerAddressNoPortDefaultsTo2135) {
 }
 
 TEST_F(QuerySpanTest, IPv6EndpointParsing) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "[::1]:2136");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "[::1]:2136");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -83,7 +109,7 @@ TEST_F(QuerySpanTest, IPv6EndpointParsing) {
 }
 
 TEST_F(QuerySpanTest, IPv6EndpointNoPort) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "[fe80::1]");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "[fe80::1]");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -93,7 +119,7 @@ TEST_F(QuerySpanTest, IPv6EndpointNoPort) {
 }
 
 TEST_F(QuerySpanTest, PeerEndpointAttributes) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "discovery.ydb:2135");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "discovery.ydb:2135");
     span.SetPeerEndpoint("10.0.0.1:2136");
     span.End(EStatus::SUCCESS);
 
@@ -104,7 +130,7 @@ TEST_F(QuerySpanTest, PeerEndpointAttributes) {
 }
 
 TEST_F(QuerySpanTest, SuccessStatusRecorded) {
-    TQuerySpan span(Tracer, "Commit", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "Commit", "localhost:2135");
     span.End(EStatus::SUCCESS);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -115,7 +141,7 @@ TEST_F(QuerySpanTest, SuccessStatusRecorded) {
 }
 
 TEST_F(QuerySpanTest, ErrorStatusSetsErrorType) {
-    TQuerySpan span(Tracer, "Rollback", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "Rollback", "localhost:2135");
     span.End(EStatus::UNAVAILABLE);
 
     auto fakeSpan = Tracer->GetLastSpan();
@@ -126,7 +152,7 @@ TEST_F(QuerySpanTest, ErrorStatusSetsErrorType) {
 }
 
 TEST_F(QuerySpanTest, SpanIsEndedAfterEnd) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "localhost:2135");
     auto fakeSpan = Tracer->GetLastSpan();
     ASSERT_NE(fakeSpan, nullptr);
 
@@ -137,7 +163,7 @@ TEST_F(QuerySpanTest, SpanIsEndedAfterEnd) {
 
 TEST_F(QuerySpanTest, NullTracerDoesNotCrash) {
     EXPECT_NO_THROW({
-        TQuerySpan span(nullptr, "ExecuteQuery", "localhost:2135");
+        NYdb::NObservability::TRequestSpan span(nullptr, "ExecuteQuery", "localhost:2135", kTestDbNamespace, TLog(), "Query");
         span.SetPeerEndpoint("10.0.0.1:2136");
         span.AddEvent("retry", {{"attempt", "1"}});
         span.End(EStatus::SUCCESS);
@@ -146,7 +172,7 @@ TEST_F(QuerySpanTest, NullTracerDoesNotCrash) {
 
 TEST_F(QuerySpanTest, DestructorEndsSpan) {
     auto fakeSpan = [&]() -> std::shared_ptr<TFakeSpan> {
-        TQuerySpan span(Tracer, "CreateSession", "localhost:2135");
+        auto span = MakeRequestSpan(Tracer, "CreateSession", "localhost:2135");
         return Tracer->GetLastSpan();
     }();
 
@@ -156,7 +182,7 @@ TEST_F(QuerySpanTest, DestructorEndsSpan) {
 
 TEST_F(QuerySpanTest, ExplicitEndThenDestructorDoesNotDoubleEnd) {
     auto fakeSpan = [&]() -> std::shared_ptr<TFakeSpan> {
-        TQuerySpan span(Tracer, "Commit", "localhost:2135");
+        auto span = MakeRequestSpan(Tracer, "Commit", "localhost:2135");
         span.End(EStatus::SUCCESS);
         return Tracer->GetLastSpan();
     }();
@@ -166,7 +192,7 @@ TEST_F(QuerySpanTest, ExplicitEndThenDestructorDoesNotDoubleEnd) {
 }
 
 TEST_F(QuerySpanTest, AddEventForwarded) {
-    TQuerySpan span(Tracer, "ExecuteQuery", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "localhost:2135");
     span.AddEvent("retry", {{"ydb.attempt", "2"}, {"error.type", "UNAVAILABLE"}});
     span.End(EStatus::SUCCESS);
 
@@ -180,7 +206,7 @@ TEST_F(QuerySpanTest, AddEventForwarded) {
 }
 
 TEST_F(QuerySpanTest, EmptyPeerEndpointIgnored) {
-    TQuerySpan span(Tracer, "CreateSession", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "CreateSession", "localhost:2135");
     span.SetPeerEndpoint("");
     span.End(EStatus::SUCCESS);
 
@@ -194,19 +220,19 @@ TEST_F(QuerySpanTest, AllFourOperationNames) {
     const std::vector<std::string> operations = {"CreateSession", "ExecuteQuery", "Commit", "Rollback"};
 
     for (const auto& op : operations) {
-        TQuerySpan span(Tracer, op, "localhost:2135");
+        auto span = MakeRequestSpan(Tracer, op, "localhost:2135");
         span.End(EStatus::SUCCESS);
     }
 
     auto spans = Tracer->GetSpans();
     ASSERT_EQ(spans.size(), 4u);
-    EXPECT_EQ(spans[0].Name, "ydb.CreateSession");
-    EXPECT_EQ(spans[1].Name, "ydb.ExecuteQuery");
-    EXPECT_EQ(spans[2].Name, "ydb.Commit");
-    EXPECT_EQ(spans[3].Name, "ydb.Rollback");
+    EXPECT_EQ(spans[0].Name, "CreateSession");
+    EXPECT_EQ(spans[1].Name, "ExecuteQuery");
+    EXPECT_EQ(spans[2].Name, "Commit");
+    EXPECT_EQ(spans[3].Name, "Rollback");
 
     for (const auto& record : spans) {
-        EXPECT_EQ(record.Kind, ESpanKind::CLIENT);
+        EXPECT_EQ(record.Kind, NTrace::ESpanKind::CLIENT);
     }
 }
 
@@ -223,7 +249,7 @@ TEST_F(QuerySpanTest, MultipleErrorStatuses) {
     };
 
     for (auto status : errorStatuses) {
-        TQuerySpan span(Tracer, "ExecuteQuery", "localhost:2135");
+        auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "localhost:2135");
         span.End(status);
 
         auto fakeSpan = Tracer->GetLastSpan();
@@ -236,13 +262,13 @@ TEST_F(QuerySpanTest, MultipleErrorStatuses) {
 
 TEST_F(QuerySpanTest, EmptyEndpointDoesNotCrash) {
     EXPECT_NO_THROW({
-        TQuerySpan span(Tracer, "ExecuteQuery", "");
+        auto span = MakeRequestSpan(Tracer, "ExecuteQuery", "");
         span.End(EStatus::SUCCESS);
     });
 }
 
 TEST_F(QuerySpanTest, ActivateReturnsScope) {
-    TQuerySpan span(Tracer, "RetryQuery", "localhost:2135");
+    auto span = MakeRequestSpan(Tracer, "RetryQuery", "localhost:2135");
     auto scope = span.Activate();
     EXPECT_NE(scope, nullptr);
 
@@ -254,7 +280,7 @@ TEST_F(QuerySpanTest, ActivateReturnsScope) {
 }
 
 TEST_F(QuerySpanTest, ActivateNullTracerReturnsNull) {
-    TQuerySpan span(nullptr, "RetryQuery", "localhost:2135");
+    NYdb::NObservability::TRequestSpan span(nullptr, "RetryQuery", "localhost:2135", kTestDbNamespace, TLog(), "Query");
     auto scope = span.Activate();
     EXPECT_EQ(scope, nullptr);
 }

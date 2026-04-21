@@ -136,10 +136,22 @@ void TRequestSpan::AddEvent(const std::string& name, const std::map<std::string,
     }
 }
 
+std::unique_ptr<NTrace::IScope> TRequestSpan::Activate() noexcept {
+    if (!Span_) {
+        return nullptr;
+    }
+    try {
+        return Span_->Activate();
+    } catch (...) {
+        SafeLogRequestSpanError(Log_, "failed to activate span", std::current_exception());
+        return nullptr;
+    }
+}
+
 void TRequestSpan::End(EStatus status) noexcept {
     if (Span_) {
         try {
-            Span_->SetAttribute("db.response.status_code", ToString(status));
+            Span_->SetAttribute("db.response.status_code", static_cast<int64_t>(status));
             if (status != EStatus::SUCCESS) {
                 Span_->SetAttribute("error.type", ToString(status));
             }

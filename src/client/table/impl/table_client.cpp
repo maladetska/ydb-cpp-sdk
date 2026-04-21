@@ -400,6 +400,7 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
                 }
                 self->DbDriverState_->StatCollector.IncSessionsOnHost(status.Endpoint);
             } else {
+                // We do not use SessionStatusInterception for CreateSession request
                 session.SessionImpl_->MarkBroken();
             }
             TCreateSessionResult val(TStatus(std::move(status)), std::move(session));
@@ -795,7 +796,6 @@ TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSessio
     auto obs = MakeObservation("BeginTransaction");
 
     auto promise = NewPromise<TBeginTransactionResult>();
-    auto span = std::make_shared<TTableSpan>(Tracer_, "BeginTransaction", DbDriverState_->DiscoveryEndpoint);
 
     auto extractor = [promise, session, obs]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
@@ -838,8 +838,6 @@ TAsyncCommitTransactionResult TTableClient::TImpl::CommitTransaction(const TSess
     auto obs = MakeObservation("CommitTransaction");
 
     auto promise = NewPromise<TCommitTransactionResult>();
-    auto metrics = std::make_shared<TTableMetrics>(MetricRegistry_, "Commit");
-    auto span = std::make_shared<TTableSpan>(Tracer_, "Commit", DbDriverState_->DiscoveryEndpoint);
 
     auto extractor = [promise, obs]
         (google::protobuf::Any* any, TPlainStatus status) mutable {

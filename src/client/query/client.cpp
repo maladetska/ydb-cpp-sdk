@@ -578,8 +578,14 @@ public:
             ), NSessionPool::PERIODIC_ACTION_INTERVAL);
     }
 
-    std::shared_ptr<TQuerySpan> CreateRetrySpan(const std::string& operationName) {
-        return std::make_shared<TQuerySpan>(Tracer_, operationName, DbDriverState_->DiscoveryEndpoint);
+    std::shared_ptr<NObservability::TRequestSpan> CreateRetrySpan(const std::string& operationName) {
+        return std::make_shared<NObservability::TRequestSpan>(
+            Tracer_,
+            operationName,
+            DbDriverState_->DiscoveryEndpoint,
+            DbDriverState_->Database,
+            DbDriverState_->Log,
+            "Query");
     }
 
     void CollectRetryStatAsync(EStatus status) {

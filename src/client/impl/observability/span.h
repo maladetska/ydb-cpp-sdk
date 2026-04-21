@@ -25,6 +25,7 @@ public:
 
     void SetPeerEndpoint(const std::string& endpoint) noexcept;
     void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) noexcept;
+    std::unique_ptr<NTrace::IScope> Activate() noexcept;
 
     void End(EStatus status) noexcept;
 

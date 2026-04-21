@@ -19,9 +19,6 @@
 #include "request_migrator.h"
 #include "readers.h"
 
-#include "table_metrics.h"
-#include "table_spans.h"
-
 #include <library/cpp/threading/future/core/coroutine_traits.h>
 
 
@@ -333,9 +330,6 @@ public:
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> QuerySizeHistogram;
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> ParamsSizeHistogram;
     NSdkStats::TAtomicCounter<::NMonitoring::TRate> SessionRemovedDueBalancing;
-
-    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
-    std::shared_ptr<NMetrics::ITracer> Tracer_;
 
 private:
     std::shared_ptr<NTrace::ITracer> Tracer_;

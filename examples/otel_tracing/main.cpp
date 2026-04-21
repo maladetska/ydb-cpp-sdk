@@ -268,7 +268,7 @@ int main(int argc, char** argv) {
     auto tracerProvider = InitTracing(cfg);
     auto meterProvider = InitMetrics(cfg);
 
-    auto ydbTraceProvider = NMetrics::CreateOtelTraceProvider(tracerProvider);
+    auto ydbTraceProvider = NTrace::CreateOtelTraceProvider(tracerProvider);
     auto ydbMetricRegistry = NMetrics::CreateOtelMetricRegistry(meterProvider);
 
     std::cout << "Connecting to YDB at " << cfg.Endpoint << cfg.Database << std::endl;
