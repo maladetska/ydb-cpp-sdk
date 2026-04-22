@@ -403,7 +403,7 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
 
     auto createSessionPromise = NewPromise<TCreateSessionResult>();
     auto self = shared_from_this();
-    auto obs = MakeObservation("ydb.CreateSession");
+    auto obs = MakeObservation("CreateSession");
 
     auto createSessionExtractor = [createSessionPromise, self, standalone, obs]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
@@ -787,7 +787,7 @@ TAsyncStatus TTableClient::TImpl::ExecuteSchemeQuery(const TSession& session, co
     request.set_session_id(TStringType{session.GetId()});
     request.set_yql_text(TStringType{query});
 
-    auto obs = MakeObservation("ydb.ExecuteSchemeQuery");
+    auto obs = MakeObservation("ExecuteSchemeQuery");
 
     auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::ExecuteSchemeQueryRequest, Ydb::Table::ExecuteSchemeQueryResponse>(
         std::move(request),
@@ -813,7 +813,7 @@ TAsyncBeginTransactionResult TTableClient::TImpl::BeginTransaction(const TSessio
     request.set_session_id(TStringType{session.GetId()});
     SetTxSettings(txSettings, request.mutable_tx_settings());
 
-    auto obs = MakeObservation("ydb.BeginTransaction");
+    auto obs = MakeObservation("BeginTransaction");
 
     auto promise = NewPromise<TBeginTransactionResult>();
 
@@ -856,7 +856,7 @@ TAsyncCommitTransactionResult TTableClient::TImpl::CommitTransaction(const TSess
     request.set_tx_id(TStringType{txId});
     request.set_collect_stats(GetStatsCollectionMode(settings.CollectQueryStats_));
 
-    auto obs = MakeObservation("ydb.Commit");
+    auto obs = MakeObservation("Commit");
 
     auto promise = NewPromise<TCommitTransactionResult>();
 
@@ -900,7 +900,7 @@ TAsyncStatus TTableClient::TImpl::RollbackTransaction(const TSession& session, c
     request.set_session_id(TStringType{session.GetId()});
     request.set_tx_id(TStringType{txId});
 
-    auto obs = MakeObservation("ydb.Rollback");
+    auto obs = MakeObservation("Rollback");
 
     auto future = RunSimple<Ydb::Table::V1::TableService, Ydb::Table::RollbackTransactionRequest, Ydb::Table::RollbackTransactionResponse>(
         std::move(request),
@@ -1183,7 +1183,7 @@ TAsyncBulkUpsertResult TTableClient::TImpl::BulkUpsert(const std::string& table,
         *mutable_rows->mutable_type() = rows.GetType().GetProto();
     }
 
-    auto obs = MakeObservation("ydb.BulkUpsert");
+    auto obs = MakeObservation("BulkUpsert");
 
     auto promise = NewPromise<TBulkUpsertResult>();
     auto extractor = [promise, obs](google::protobuf::Any* any, TPlainStatus status) mutable {
@@ -1233,7 +1233,7 @@ TAsyncBulkUpsertResult TTableClient::TImpl::BulkUpsert(const std::string& table,
     }
     request.set_data(TStringType{data});
 
-    auto obs = MakeObservation("ydb.BulkUpsert");
+    auto obs = MakeObservation("BulkUpsert");
 
     auto promise = NewPromise<TBulkUpsertResult>();
 

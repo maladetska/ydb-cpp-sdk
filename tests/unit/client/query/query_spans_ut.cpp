@@ -42,7 +42,7 @@ TEST_F(QuerySpanTest, SpanNameFormat) {
     span.End(EStatus::SUCCESS);
 
     ASSERT_EQ(Tracer->SpanCount(), 1u);
-    EXPECT_EQ(Tracer->GetLastSpanRecord().Name, "ExecuteQuery");
+    EXPECT_EQ(Tracer->GetLastSpanRecord().Name, "ydb.ExecuteQuery");
 }
 
 TEST_F(QuerySpanTest, SpanKindIsClient) {
@@ -70,7 +70,7 @@ TEST_F(QuerySpanTest, DbNamespaceAndClientApi) {
     ASSERT_NE(fakeSpan, nullptr);
     EXPECT_EQ(fakeSpan->GetStringAttribute("db.namespace"), kTestDbNamespace);
     EXPECT_EQ(fakeSpan->GetStringAttribute("ydb.client.api"), "Query");
-    EXPECT_EQ(fakeSpan->GetStringAttribute("db.operation.name"), "ExecuteQuery");
+    EXPECT_EQ(fakeSpan->GetStringAttribute("db.operation.name"), "ydb.ExecuteQuery");
 }
 
 TEST_F(QuerySpanTest, ServerAddressAndPort) {
@@ -236,10 +236,10 @@ TEST_F(QuerySpanTest, AllFourOperationNames) {
 
     auto spans = Tracer->GetSpans();
     ASSERT_EQ(spans.size(), 4u);
-    EXPECT_EQ(spans[0].Name, "CreateSession");
-    EXPECT_EQ(spans[1].Name, "ExecuteQuery");
-    EXPECT_EQ(spans[2].Name, "Commit");
-    EXPECT_EQ(spans[3].Name, "Rollback");
+    EXPECT_EQ(spans[0].Name, "ydb.CreateSession");
+    EXPECT_EQ(spans[1].Name, "ydb.ExecuteQuery");
+    EXPECT_EQ(spans[2].Name, "ydb.Commit");
+    EXPECT_EQ(spans[3].Name, "ydb.Rollback");
 
     for (const auto& record : spans) {
         EXPECT_EQ(record.Kind, NTrace::ESpanKind::CLIENT);
