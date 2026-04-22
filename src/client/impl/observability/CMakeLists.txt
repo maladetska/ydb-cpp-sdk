@@ -4,6 +4,7 @@ target_link_libraries(impl-observability PUBLIC
   yutil
   client-metrics
   client-impl-ydb_stats
+  client-types
 )
 
 target_sources(impl-observability PRIVATE
