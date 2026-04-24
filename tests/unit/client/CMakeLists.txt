@@ -118,3 +118,18 @@ add_ydb_test(NAME client-value_ut GTEST
   LABELS
     unit
 )
+
+add_ydb_test(NAME client-ydb_metrics_ut GTEST
+  INCLUDE_DIRS
+    ${YDB_SDK_SOURCE_DIR}
+  SOURCES
+    observability/metrics_ut.cpp
+  LINK_LIBRARIES
+    yutil
+    impl-observability
+    client-ydb_query-impl
+    client-ydb_table-impl
+    client-metrics
+  LABELS
+    unit
+)
