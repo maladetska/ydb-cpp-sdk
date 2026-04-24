@@ -1,6 +1,7 @@
 add_subdirectory(auth)
 add_subdirectory(basic_example)
 add_subdirectory(bulk_upsert)
+add_subdirectory(metrics)
 add_subdirectory(server_restart)
 add_subdirectory(sessions)
 add_subdirectory(sessions_pool)
