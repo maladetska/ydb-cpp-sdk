@@ -404,8 +404,9 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
     auto createSessionPromise = NewPromise<TCreateSessionResult>();
     auto self = shared_from_this();
     auto obs = MakeObservation("CreateSession");
+    const auto createStartTime = std::chrono::steady_clock::now();
 
-    auto createSessionExtractor = [createSessionPromise, self, standalone, obs]
+    auto createSessionExtractor = [createSessionPromise, self, standalone, obs, createStartTime]
         (google::protobuf::Any* any, TPlainStatus status) mutable {
             Ydb::Table::CreateSessionResult result;
             if (any) {
@@ -422,6 +423,9 @@ TAsyncCreateSessionResult TTableClient::TImpl::CreateSession(const TCreateSessio
                 session.SessionImpl_->MarkBroken();
             }
             obs->SetPeerEndpoint(status.Endpoint);
+            const double elapsedSec =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - createStartTime).count();
+            self->SessionPool_.RecordConnectionCreateTime(elapsedSec);
             TCreateSessionResult val(TStatus(std::move(status)), std::move(session));
             obs->End(val.GetStatus());
             createSessionPromise.SetValue(std::move(val));

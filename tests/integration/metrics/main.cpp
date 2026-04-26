@@ -39,19 +39,25 @@ TRunArgs MakeRunArgs() {
     return {driver, registry};
 }
 
-std::shared_ptr<TFakeCounter> GetCounter(
+std::shared_ptr<TFakeCounter> GetFailedCounter(
     const std::shared_ptr<TFakeMetricRegistry>& registry,
-    const std::string& name,
-    const std::string& operation)
+    const std::string& operation,
+    EStatus status)
 {
-    return registry->GetCounter(name, {
+    const std::string statusName = ToString(status);
+    return registry->GetCounter("db.client.operation.failed", {
         {"db.system.name", "ydb"},
         {"db.namespace", GetEnvOrEmpty("YDB_DATABASE")},
         {"db.operation.name", operation},
         {"ydb.client.api", "Query"},
+        {"db.response.status_code", statusName},
+        {"error.type", statusName},
     });
 }
 
+// Label set must match NSdkStats::TClientOperationStatCollector::RecordLatency (stats.h) and
+// unit tests in tests/unit/client/observability/metrics_ut.cpp: success has no
+// db.response.status_code; errors add status and error.type.
 std::shared_ptr<TFakeHistogram> GetDuration(
     const std::shared_ptr<TFakeMetricRegistry>& registry,
     const std::string& operation,
@@ -62,10 +68,11 @@ std::shared_ptr<TFakeHistogram> GetDuration(
         {"db.namespace", GetEnvOrEmpty("YDB_DATABASE")},
         {"db.operation.name", operation},
         {"ydb.client.api", "Query"},
-        {"db.response.status_code", ToString(status)},
     };
     if (status != EStatus::SUCCESS) {
-        labels["error.type"] = ToString(status);
+        const std::string statusName = ToString(status);
+        labels["db.response.status_code"] = statusName;
+        labels["error.type"] = statusName;
     }
     return registry->GetHistogram("db.client.operation.duration", labels);
 }
@@ -84,14 +91,6 @@ TEST(QueryMetricsIntegration, ExecuteQuerySuccessRecordsMetrics) {
         TTxControl::BeginTx().CommitTx()
     ).ExtractValueSync();
     ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
-
-    auto requests = GetCounter(registry, "db.client.operation.requests", "ydb.ExecuteQuery");
-    ASSERT_NE(requests, nullptr) << "ExecuteQuery request counter not created";
-    EXPECT_GE(requests->Get(), 1);
-
-    auto errors = GetCounter(registry, "db.client.operation.errors", "ydb.ExecuteQuery");
-    ASSERT_NE(errors, nullptr);
-    EXPECT_EQ(errors->Get(), 0);
 
     auto duration = GetDuration(registry, "ydb.ExecuteQuery", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr) << "ExecuteQuery duration histogram not created";
@@ -116,13 +115,9 @@ TEST(QueryMetricsIntegration, ExecuteQueryErrorRecordsErrorMetric) {
     ).ExtractValueSync();
     EXPECT_NE(result.GetStatus(), EStatus::SUCCESS);
 
-    auto requests = GetCounter(registry, "db.client.operation.requests", "ydb.ExecuteQuery");
-    ASSERT_NE(requests, nullptr);
-    EXPECT_GE(requests->Get(), 1);
-
-    auto errors = GetCounter(registry, "db.client.operation.errors", "ydb.ExecuteQuery");
-    ASSERT_NE(errors, nullptr);
-    EXPECT_GE(errors->Get(), 1);
+    auto failed = GetFailedCounter(registry, "ydb.ExecuteQuery", result.GetStatus());
+    ASSERT_NE(failed, nullptr);
+    EXPECT_GE(failed->Get(), 1);
 
     auto duration = GetDuration(registry, "ydb.ExecuteQuery", result.GetStatus());
     ASSERT_NE(duration, nullptr);
@@ -138,11 +133,8 @@ TEST(QueryMetricsIntegration, CreateSessionRecordsMetrics) {
     auto session = client.GetSession().ExtractValueSync();
     ASSERT_TRUE(session.IsSuccess()) << session.GetIssues().ToString();
 
-    auto requests = GetCounter(registry, "db.client.operation.requests", "ydb.GetSession");
-    ASSERT_NE(requests, nullptr) << "CreateSession request counter not created";
-    EXPECT_GE(requests->Get(), 1);
-
-    auto duration = GetDuration(registry, "ydb.GetSession", EStatus::SUCCESS);
+    // Query client uses observation name "CreateSession" -> ydb.CreateSession in metrics.
+    auto duration = GetDuration(registry, "ydb.CreateSession", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr) << "CreateSession duration histogram not created";
     EXPECT_GE(duration->Count(), 1u);
 
@@ -171,10 +163,6 @@ TEST(QueryMetricsIntegration, CommitTransactionRecordsMetrics) {
         auto commitResult = execResult.GetTransaction()->Commit().ExtractValueSync();
         ASSERT_TRUE(commitResult.IsSuccess()) << commitResult.GetIssues().ToString();
 
-        auto commitRequests = GetCounter(registry, "db.client.operation.requests", "ydb.Commit");
-        ASSERT_NE(commitRequests, nullptr) << "Commit request counter not created";
-        EXPECT_GE(commitRequests->Get(), 1);
-
         auto commitDuration = GetDuration(registry, "ydb.Commit", EStatus::SUCCESS);
         ASSERT_NE(commitDuration, nullptr);
         EXPECT_GE(commitDuration->Count(), 1u);
@@ -197,14 +185,6 @@ TEST(QueryMetricsIntegration, RollbackTransactionRecordsMetrics) {
 
     auto rollbackResult = tx.Rollback().ExtractValueSync();
     ASSERT_TRUE(rollbackResult.IsSuccess()) << rollbackResult.GetIssues().ToString();
-
-    auto rollbackRequests = GetCounter(registry, "db.client.operation.requests", "ydb.Rollback");
-    ASSERT_NE(rollbackRequests, nullptr) << "Rollback request counter not created";
-    EXPECT_GE(rollbackRequests->Get(), 1);
-
-    auto rollbackErrors = GetCounter(registry, "db.client.operation.errors", "ydb.Rollback");
-    ASSERT_NE(rollbackErrors, nullptr);
-    EXPECT_EQ(rollbackErrors->Get(), 0);
 
     auto rollbackDuration = GetDuration(registry, "ydb.Rollback", EStatus::SUCCESS);
     ASSERT_NE(rollbackDuration, nullptr);
@@ -229,14 +209,6 @@ TEST(QueryMetricsIntegration, MultipleQueriesAccumulateMetrics) {
         ).ExtractValueSync();
         ASSERT_EQ(result.GetStatus(), EStatus::SUCCESS) << result.GetIssues().ToString();
     }
-
-    auto requests = GetCounter(registry, "db.client.operation.requests", "ydb.ExecuteQuery");
-    ASSERT_NE(requests, nullptr);
-    EXPECT_EQ(requests->Get(), numQueries);
-
-    auto errors = GetCounter(registry, "db.client.operation.errors", "ydb.ExecuteQuery");
-    ASSERT_NE(errors, nullptr);
-    EXPECT_EQ(errors->Get(), 0);
 
     auto duration = GetDuration(registry, "ydb.ExecuteQuery", EStatus::SUCCESS);
     ASSERT_NE(duration, nullptr);

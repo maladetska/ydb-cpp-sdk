@@ -202,6 +202,7 @@ void TSessionPool::ClearOldWaiters() {
 
     for (auto& waiter : oldWaiters) {
         FakeSessionsCounter_.Inc();
+        ExternalStatCollector_.IncConnectionTimeouts();
         waiter->ReplyError(CLIENT_RESOURCE_EXHAUSTED_ACTIVE_SESSION_LIMIT);
     }
 
@@ -338,6 +339,7 @@ TPeriodicCb TSessionPool::CreatePeriodicTask(std::weak_ptr<ISessionClient> weakC
 
             for (auto& waiter : waitersToReplyError) {
                 FakeSessionsCounter_.Inc();
+                ExternalStatCollector_.IncConnectionTimeouts();
                 waiter->ReplyError(CLIENT_RESOURCE_EXHAUSTED_ACTIVE_SESSION_LIMIT);
             }
         }
@@ -392,12 +394,26 @@ void TSessionPool::SetStatCollector(NSdkStats::TStatCollector::TSessionPoolStatC
     InPoolSessionsCounter_.Set(statCollector.InPoolSessions);
     FakeSessionsCounter_.Set(statCollector.FakeSessions);
     SessionWaiterCounter_.Set(statCollector.Waiters);
+    ExternalStatCollector_ = std::move(statCollector);
+    // Publish an initial zeroed state for OTel gauges so that users see the series
+    // appear as soon as a client starts, even before any session activity.
+    ExternalStatCollector_.UpdateConnectionCount(ActiveSessions_ + static_cast<std::int64_t>(Sessions_.size()));
+    ExternalStatCollector_.UpdatePendingRequests(WaitersQueue_.Size());
+}
+
+void TSessionPool::RecordConnectionCreateTime(double seconds) {
+    ExternalStatCollector_.RecordConnectionCreateTime(seconds);
 }
 
 void TSessionPool::UpdateStats() {
     ActiveSessionsCounter_.Apply(ActiveSessions_);
     InPoolSessionsCounter_.Apply(Sessions_.size());
     SessionWaiterCounter_.Apply(WaitersQueue_.Size());
+    // Export connection pool state via OpenTelemetry metrics as well.
+    // session == connection in YDB, so connection.count includes both in-use
+    // (active) sessions and idle sessions still living in the pool.
+    ExternalStatCollector_.UpdateConnectionCount(ActiveSessions_ + static_cast<std::int64_t>(Sessions_.size()));
+    ExternalStatCollector_.UpdatePendingRequests(WaitersQueue_.Size());
 }
 
 }

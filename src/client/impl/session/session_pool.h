@@ -128,6 +128,10 @@ public:
     void Drain(std::function<bool(std::unique_ptr<TKqpSessionCommon>&&)> cb, bool close);
     void SetStatCollector(NSdkStats::TStatCollector::TSessionPoolStatCollector collector);
 
+    // Records time spent creating a new connection (session). To be called by the
+    // client after a CreateSession RPC completes.
+    void RecordConnectionCreateTime(double seconds);
+
     void OnCloseSession(const TKqpSessionCommon*, std::shared_ptr<ISessionClient> client) override;
 
 private:
@@ -146,6 +150,7 @@ private:
     NSdkStats::TSessionCounter InPoolSessionsCounter_;
     NSdkStats::TSessionCounter SessionWaiterCounter_;
     NSdkStats::TAtomicCounter<::NMonitoring::TRate> FakeSessionsCounter_;
+    NSdkStats::TStatCollector::TSessionPoolStatCollector ExternalStatCollector_;
 };
 
 }
