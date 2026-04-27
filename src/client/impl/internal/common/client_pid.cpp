@@ -3,6 +3,11 @@
 
 #include <util/system/defaults.h>
 
+#include <cstdint>
+
+#include <cstdint>
+#include <string>
+
 #ifdef _win_
     // copied from util/system/getpid.cpp
     // to avoid extra util dep.
