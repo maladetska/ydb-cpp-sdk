@@ -2,19 +2,6 @@
 
 #include <src/client/topic/common/log_lazy.h>
 #include <src/client/topic/common/simple_blocking_helpers.h>
-<<<<<<< HEAD
-#include <src/library/decimal/yql_decimal.h>
-
-#include <library/cpp/threading/future/wait/wait.h>
-#include <library/cpp/threading/future/subscription/wait_any.h>
-
-#include <util/digest/murmur.h>
-#include <util/string/hex.h>
-#include <util/system/byteorder.h>
-
-#include <format>
-=======
->>>>>>> f3e35e369 (Add TSimpleBlockingFederatedWriteSession (#32794))
 
 namespace NYdb::inline V3::NTopic {
 

@@ -22,7 +22,6 @@ target_sources(client-ydb_table-impl PRIVATE
   readers.cpp
   request_migrator.cpp
   table_client.cpp
-  table_spans.cpp
   transaction.cpp
 )
 
