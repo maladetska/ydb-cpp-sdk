@@ -1,4 +1,5 @@
 _ydb_sdk_add_library(open_telemetry_metrics)
+
 target_sources(open_telemetry_metrics PRIVATE
   src/metrics.cpp
 )

@@ -68,19 +68,11 @@ struct TMetricKey {
 
 class TFakeMetricRegistry : public NMetrics::IMetricRegistry {
 public:
-<<<<<<< HEAD
-<<<<<<< HEAD
     std::shared_ptr<NMetrics::ICounter> Counter(const std::string& name
         , const NMetrics::TLabels& labels
         , const std::string& /*description*/
         , const std::string& /*unit*/
     ) override {
-=======
-    std::shared_ptr<NMetrics::ICounter> Counter(const std::string& name, const NMetrics::TLabels& labels) override {
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-    std::shared_ptr<NMetrics::ICounter> Counter(const std::string& name, const NMetrics::TLabels& labels) override {
->>>>>>> dcae6d69e (fixes and add metric tests)
         std::lock_guard lock(Mutex_);
         auto key = TMetricKey{name, labels};
         auto it = Counters_.find(key);
@@ -92,19 +84,11 @@ public:
         return counter;
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     std::shared_ptr<NMetrics::IGauge> Gauge(const std::string& name
         , const NMetrics::TLabels& labels
         , const std::string& /*description*/
         , const std::string& /*unit*/
     ) override {
-=======
-    std::shared_ptr<NMetrics::IGauge> Gauge(const std::string& name, const NMetrics::TLabels& labels) override {
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-    std::shared_ptr<NMetrics::IGauge> Gauge(const std::string& name, const NMetrics::TLabels& labels) override {
->>>>>>> dcae6d69e (fixes and add metric tests)
         std::lock_guard lock(Mutex_);
         auto key = TMetricKey{name, labels};
         auto gauge = std::make_shared<TFakeGauge>();
@@ -112,20 +96,12 @@ public:
         return gauge;
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     std::shared_ptr<NMetrics::IHistogram> Histogram(const std::string& name
         , const std::vector<double>& /*buckets*/
         , const NMetrics::TLabels& labels
         , const std::string& /*description*/
         , const std::string& /*unit*/
     ) override {
-=======
-    std::shared_ptr<NMetrics::IHistogram> Histogram(const std::string& name, const std::vector<double>& /*buckets*/, const NMetrics::TLabels& labels) override {
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-    std::shared_ptr<NMetrics::IHistogram> Histogram(const std::string& name, const std::vector<double>& /*buckets*/, const NMetrics::TLabels& labels) override {
->>>>>>> dcae6d69e (fixes and add metric tests)
         std::lock_guard lock(Mutex_);
         auto key = TMetricKey{name, labels};
         auto it = Histograms_.find(key);

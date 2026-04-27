@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace NYdb::inline V3::NMetrics {
+namespace NYdb::inline V3::NTrace {
 
 enum class ESpanKind {
     INTERNAL,
@@ -15,17 +15,6 @@ enum class ESpanKind {
     CONSUMER
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-class IScope {
-public:
-    virtual ~IScope() = default;
-};
-
-=======
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
->>>>>>> dcae6d69e (fixes and add metric tests)
 class ISpan {
 public:
     virtual ~ISpan() = default;
@@ -33,13 +22,6 @@ public:
     virtual void SetAttribute(const std::string& key, const std::string& value) = 0;
     virtual void SetAttribute(const std::string& key, int64_t value) = 0;
     virtual void AddEvent(const std::string& name, const std::map<std::string, std::string>& attributes = {}) = 0;
-<<<<<<< HEAD
-<<<<<<< HEAD
-    virtual std::unique_ptr<IScope> Activate() = 0;
-=======
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
->>>>>>> dcae6d69e (fixes and add metric tests)
 };
 
 class ITracer {
@@ -54,4 +36,4 @@ public:
     virtual std::shared_ptr<ITracer> GetTracer(const std::string& name) = 0;
 };
 
-} // namespace NYdb::NMetrics
+} // namespace NYdb::NTrace

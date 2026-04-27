@@ -8,13 +8,17 @@
 #include <ydb-cpp-sdk/client/common_client/ssl_credentials.h>
 #include <ydb-cpp-sdk/client/types/credentials/credentials.h>
 #include <ydb-cpp-sdk/client/types/executor/executor.h>
+#include <ydb-cpp-sdk/client/types/ydb.h>
 
 namespace NYdb::inline V3 {
 
 namespace NMetrics {
     class IMetricRegistry;
-    class ITraceProvider;
 } // namespace NMetrics
+
+namespace NTrace {
+    class ITraceProvider;
+} // namespace NTrace
 
 class IConnectionsParams {
 public:
@@ -36,6 +40,7 @@ public:
     virtual TDuration GetGRpcKeepAliveTimeout() const = 0;
     virtual bool GetGRpcKeepAlivePermitWithoutCalls() const = 0;
     virtual std::string GetGRpcLoadBalancingPolicy() const = 0;
+    virtual EGrpcCompressionAlgorithm GetGRpcCompressionAlgorithm() const = 0;
     virtual TDuration GetSocketIdleTimeout() const = 0;
     virtual const TLog& GetLog() const = 0;
     virtual uint64_t GetMemoryQuota() const = 0;
@@ -43,28 +48,9 @@ public:
     virtual uint64_t GetMaxOutboundMessageSize() const = 0;
     virtual uint64_t GetMaxMessageSize() const = 0;
     virtual std::shared_ptr<IExecutor> GetExecutor() const = 0;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+    virtual std::string GetBuildInfoExtra() const = 0;
     virtual std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const = 0;
-    virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const = 0;
-=======
-    virtual std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const = 0;
-    virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const = 0;
->>>>>>> 1b2bf4fa5 (fixes)
-=======
-    virtual std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const = 0;
-    virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const = 0;
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-    virtual std::shared_ptr<NMetrics::IMetricRegistry> GetMetricExporter() const = 0;
-    virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceExporter() const = 0;
->>>>>>> a979e6bda (fixes)
-=======
-    virtual std::shared_ptr<NMetrics::IMetricRegistry> GetExternalMetricRegistry() const = 0;
-    virtual std::shared_ptr<NMetrics::ITraceProvider> GetTraceProvider() const = 0;
->>>>>>> dcae6d69e (fixes and add metric tests)
+    virtual std::shared_ptr<NTrace::ITraceProvider> GetTraceProvider() const = 0;
 };
 
 } // namespace NYdb

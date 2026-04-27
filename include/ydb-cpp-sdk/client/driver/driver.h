@@ -14,6 +14,8 @@
 
 #include <library/cpp/logger/backend.h>
 
+#include <grpcpp/grpcpp.h>
+
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace NYdb::inline V3 {
@@ -139,6 +141,11 @@ public:
     //! default: "round_robin"
     TDriverConfig& SetGRpcLoadBalancingPolicy(const std::string& policy);
 
+    //! Set grpc compression algorithm
+    //! algorithm - EGrpcCompressionAlgorithm enum value, see grpc documentation for available algorithms
+    //! default: EGrpcCompressionAlgorithm::None
+    TDriverConfig& SetGRpcCompressionAlgorithm(EGrpcCompressionAlgorithm algorithm);
+
     //! Set inactive socket timeout.
     //! Used to close connections, that were inactive for given time.
     //! Closes unused connections every 1/10 of timeout, so deletion time is approximate.
@@ -161,6 +168,14 @@ public:
     //! default: 0
     TDriverConfig& SetMaxMessageSize(uint64_t maxMessageSize);
 
+    //! Append a segment to the SDK build info header (x-ydb-sdk-build-info).
+    //! Do not call this method unless you know exactly what you are doing.
+    //! Segments are joined with ';'. Each segment must match: <name>/<X>.<Y>.<Z>
+    //!   name chars: lowercase latin letters, digits, '-'
+    //!   X, Y, Z chars: lowercase latin letters, digits
+    //! Throws on invalid format or if total extra length exceeds 512 bytes.
+    TDriverConfig& AppendBuildInfo(std::string_view segment);
+
     //! Log backend.
     TDriverConfig& SetLog(std::unique_ptr<TLogBackend>&& log);
 
@@ -168,29 +183,12 @@ public:
     //! If not set, default executor will be used.
     TDriverConfig& SetExecutor(std::shared_ptr<IExecutor> executor);
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
     //! Set external metrics registry implementation.
     TDriverConfig& SetMetricRegistry(std::shared_ptr<NMetrics::IMetricRegistry> registry);
 
     //! Set external trace provider implementation.
-    TDriverConfig& SetTraceProvider(std::shared_ptr<NMetrics::ITraceProvider> provider);
+    TDriverConfig& SetTraceProvider(std::shared_ptr<NTrace::ITraceProvider> provider);
 
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-    //! Set external metrics exporter implementation.
-    TDriverConfig& SetMetricExporter(std::shared_ptr<NMetrics::IMetricRegistry> exporter);
-=======
-    //! Set external metrics registry implementation.
-    TDriverConfig& SetMetricRegistry(std::shared_ptr<NMetrics::IMetricRegistry> registry);
->>>>>>> dcae6d69e (fixes and add metric tests)
-
-    //! Set external trace provider implementation.
-    TDriverConfig& SetTraceProvider(std::shared_ptr<NMetrics::ITraceProvider> provider);
-
->>>>>>> a979e6bda (fixes)
 private:
     class TImpl;
     std::shared_ptr<TImpl> Impl_;

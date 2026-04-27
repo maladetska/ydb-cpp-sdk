@@ -38,6 +38,16 @@ std::string CreateSDKBuildInfo() {
     return std::string("ydb-cpp-sdk/") + GetSdkSemver();
 }
 
+std::string BuildFullBuildInfo(const IConnectionsParams& params) {
+    auto result = CreateSDKBuildInfo();
+    auto extra = params.GetBuildInfoExtra();
+    if (!extra.empty()) {
+        result += ';';
+        result += extra;
+    }
+    return result;
+}
+
 template<class TDerived>
 class TScheduledObject : public TThrRefBase {
     using TSelf = TScheduledObject<TDerived>;
@@ -158,6 +168,7 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
     , GRpcKeepAliveTimeout_(TDeadline::SafeDurationCast(params->GetGRpcKeepAliveTimeout()))
     , GRpcKeepAlivePermitWithoutCalls_(params->GetGRpcKeepAlivePermitWithoutCalls())
     , GRpcLoadBalancingPolicy_(params->GetGRpcLoadBalancingPolicy())
+    , GRpcCompressionAlgorithm_(params->GetGRpcCompressionAlgorithm())
     , MemoryQuota_(params->GetMemoryQuota())
     , MaxInboundMessageSize_(params->GetMaxInboundMessageSize())
     , MaxOutboundMessageSize_(params->GetMaxOutboundMessageSize())
@@ -169,28 +180,9 @@ TGRpcConnectionsImpl::TGRpcConnectionsImpl(std::shared_ptr<IConnectionsParams> p
 #ifndef YDB_GRPC_BYPASS_CHANNEL_POOL
     , ChannelPool_(TcpKeepAliveSettings_, params->GetSocketIdleTimeout(), TcpNoDelay_)
 #endif
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     , MetricRegistry_(params->GetExternalMetricRegistry())
     , TraceProvider_(params->GetTraceProvider())
-=======
-    , MetricExporter_(params->GetMetricExporter())
-    , TraceExporter_(params->GetTraceExporter())
->>>>>>> 1b2bf4fa5 (fixes)
-=======
-    , MetricRegistry_(params->GetExternalMetricRegistry())
-    , TraceProvider_(params->GetTraceProvider())
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-    , MetricExporter_(params->GetMetricExporter())
-    , TraceExporter_(params->GetTraceExporter())
->>>>>>> a979e6bda (fixes)
-=======
-    , MetricRegistry_(params->GetExternalMetricRegistry())
-    , TraceProvider_(params->GetTraceProvider())
->>>>>>> dcae6d69e (fixes and add metric tests)
+    , BuildInfo_(BuildFullBuildInfo(*params))
     , NetworkThreadsNum_(params->GetNetworkThreadsNum())
     , UsePerChannelTcpConnection_(params->GetUsePerChannelTcpConnection())
     , GRpcClientLow_(NetworkThreadsNum_)
@@ -358,6 +350,20 @@ void TGRpcConnectionsImpl::SetGrpcKeepAlive(NYdbGrpc::TGRpcClientConfig& config,
     config.IntChannelParams[GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS] = permitWithoutCalls ? 1 : 0;
 }
 
+void TGRpcConnectionsImpl::SetGrpcCompressionAlgorithm(NYdbGrpc::TGRpcClientConfig& config, EGrpcCompressionAlgorithm algorithm) {
+    switch (algorithm) {
+        case EGrpcCompressionAlgorithm::None:
+            config.CompressionAlgorithm = GRPC_COMPRESS_NONE;
+            break;
+        case EGrpcCompressionAlgorithm::Deflate:
+            config.CompressionAlgorithm = GRPC_COMPRESS_DEFLATE;
+            break;
+        case EGrpcCompressionAlgorithm::Gzip:
+            config.CompressionAlgorithm = GRPC_COMPRESS_GZIP;
+            break;
+    }
+}
+
 TAsyncListEndpointsResult TGRpcConnectionsImpl::GetEndpoints(TDbDriverStatePtr dbState) {
     Ydb::Discovery::ListEndpointsRequest request;
     request.set_database(TStringType{dbState->Database});
@@ -393,21 +399,22 @@ TAsyncListEndpointsResult TGRpcConnectionsImpl::GetEndpoints(TDbDriverStatePtr d
         if (strong && result.DiscoveryStatus.IsTransportError()) {
             strong->StatCollector.IncDiscoveryFailDueTransportError();
         }
-        return NThreading::MakeFuture<TListEndpointsResult>(MutateDiscovery(std::move(result), *strong));
+        return NThreading::MakeFuture<TListEndpointsResult>(MutateDiscovery(std::move(result), strong.get()));
     });
 }
 
-TListEndpointsResult TGRpcConnectionsImpl::MutateDiscovery(TListEndpointsResult result, const TDbDriverState& dbDriverState) {
+TListEndpointsResult TGRpcConnectionsImpl::MutateDiscovery(TListEndpointsResult result, const TDbDriverState* dbDriverState) {
     std::lock_guard lock(ExtensionsLock_);
-    if (!DiscoveryMutatorCb)
+    if (!DiscoveryMutatorCb || !dbDriverState) {
         return result;
+    }
 
     auto endpoint = result.DiscoveryStatus.Endpoint;
     auto ydbStatus = NYdb::TStatus(std::move(result.DiscoveryStatus));
 
     auto aux = IDiscoveryMutatorApi::TAuxInfo {
-        .Database = dbDriverState.Database,
-        .DiscoveryEndpoint = dbDriverState.DiscoveryEndpoint
+        .Database = dbDriverState->Database,
+        .DiscoveryEndpoint = dbDriverState->DiscoveryEndpoint
     };
 
     ydbStatus = DiscoveryMutatorCb(&result.Result, std::move(ydbStatus), aux);
@@ -458,45 +465,12 @@ void TGRpcConnectionsImpl::RegisterExtensionApi(IExtensionApi* api) {
     ExtensionApis_.emplace_back(api);
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
     return MetricRegistry_;
 }
 
-std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
+std::shared_ptr<NTrace::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
     return TraceProvider_;
-=======
-=======
->>>>>>> a979e6bda (fixes)
-std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetMetricExporter() const {
-    return MetricExporter_;
-}
-
-std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceExporter() const {
-    return TraceExporter_;
-<<<<<<< HEAD
->>>>>>> 1b2bf4fa5 (fixes)
-=======
-std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
-    return MetricRegistry_;
-}
-
-std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
-    return TraceProvider_;
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
->>>>>>> a979e6bda (fixes)
-=======
-std::shared_ptr<NMetrics::IMetricRegistry> TGRpcConnectionsImpl::GetExternalMetricRegistry() const {
-    return MetricRegistry_;
-}
-
-std::shared_ptr<NMetrics::ITraceProvider> TGRpcConnectionsImpl::GetTraceProvider() const {
-    return TraceProvider_;
->>>>>>> dcae6d69e (fixes and add metric tests)
 }
 
 void TGRpcConnectionsImpl::SetDiscoveryMutator(IDiscoveryMutatorApi::TMutatorCb&& cb) {
@@ -543,7 +517,7 @@ TCallMeta TGRpcConnectionsImpl::MakeCallMeta(const TRpcRequestSettings& requestS
 
     static const std::string clientPid = GetClientPIDHeaderValue();
 
-    meta.Aux.push_back({YDB_SDK_BUILD_INFO_HEADER, CreateSDKBuildInfo()});
+    meta.Aux.push_back({YDB_SDK_BUILD_INFO_HEADER, BuildInfo_});
     meta.Aux.push_back({YDB_CLIENT_PID, clientPid});
     meta.Aux.insert(meta.Aux.end(), requestSettings.Header.begin(), requestSettings.Header.end());
 

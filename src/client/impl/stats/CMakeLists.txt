@@ -4,6 +4,7 @@ target_link_libraries(client-impl-ydb_stats PUBLIC
   yutil
   grpc-client
   monlib-metrics
+  client-metrics
 )
 
 target_sources(client-impl-ydb_stats PRIVATE

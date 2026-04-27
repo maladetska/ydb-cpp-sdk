@@ -14,9 +14,8 @@
 
 #include <ydb-cpp-sdk/library/operation_id/operation_id.h>
 #include <src/client/common_client/impl/client.h>
+#include <src/client/impl/observability/observation.h>
 #include <src/client/query/impl/exec_query.h>
-#include <src/client/query/impl/query_metrics.h>
-#include <src/client/query/impl/query_spans.h>
 #include <ydb-cpp-sdk/client/retry/retry.h>
 #include <ydb-cpp-sdk/client/trace/trace.h>
 
@@ -26,6 +25,7 @@
 
 namespace NYdb::inline V3::NQuery {
 
+using TQueryObservation = NObservability::TRequestObservation;
 using TRetryContextResultAsync = NRetry::Async::TRetryContext<TQueryClient, TAsyncExecuteQueryResult>;
 using TRetryContextAsync = NRetry::Async::TRetryContext<TQueryClient, TAsyncStatus>;
 
@@ -71,26 +71,9 @@ public:
         SetStatCollector(DbDriverState_->StatCollector.GetClientStatCollector("Query"));
         SessionPool_.SetStatCollector(DbDriverState_->StatCollector.GetSessionPoolStatCollector("Query"));
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
         if (auto traceProvider = Connections_->GetTraceProvider()) {
-=======
-        if (auto traceProvider = Connections_->GetTraceExporter()) {
->>>>>>> 1b2bf4fa5 (fixes)
-=======
-        if (auto traceProvider = Connections_->GetTraceProvider()) {
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-        if (auto traceProvider = Connections_->GetTraceExporter()) {
->>>>>>> a979e6bda (fixes)
-=======
-        if (auto traceProvider = Connections_->GetTraceProvider()) {
->>>>>>> dcae6d69e (fixes and add metric tests)
             Tracer_ = traceProvider->GetTracer("ydb-cpp-sdk-query");
         }
-        MetricRegistry_ = Connections_->GetExternalMetricRegistry();
     }
 
     ~TImpl() {
@@ -101,6 +84,7 @@ public:
         QuerySizeHistogram_.Set(collector.QuerySize);
         ParamsSizeHistogram_.Set(collector.ParamsSize);
         RetryOperationStatCollector_ = collector.RetryOperationStatCollector;
+        OperationStatCollector_ = collector.OperationStatCollector;
     }
 
     TAsyncExecuteQueryIterator StreamExecuteQuery(const std::string& query, const TTxControl& txControl,
@@ -119,29 +103,18 @@ public:
         CollectQuerySize(query);
         CollectParamsSize(params ? &params->GetProtoMap() : nullptr);
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "ExecuteQuery", DbDriverState_->DiscoveryEndpoint);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-        span->SetQueryText(query);
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-        span->SetQueryText(query);
->>>>>>> dcae6d69e (fixes and add metric tests)
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "ExecuteQuery");
+        auto obs = MakeObservation("ExecuteQuery");
 
         return TExecQueryImpl::ExecuteQuery(
             Connections_, DbDriverState_, query, txControl, params, settings, session)
-            .Apply([span, metrics](TAsyncExecuteQueryResult future) {
+            .Apply([obs](TAsyncExecuteQueryResult future) {
                 try {
                     auto result = future.GetValue();
-                    span->SetPeerEndpoint(result.GetEndpoint());
-                    span->End(result.GetStatus());
-                    metrics->End(result.GetStatus());
+                    obs->SetPeerEndpoint(result.GetEndpoint());
+                    obs->End(result.GetStatus());
                     return result;
                 } catch (...) {
-                    span->End(EStatus::CLIENT_INTERNAL_ERROR);
-                    metrics->End(EStatus::CLIENT_INTERNAL_ERROR);
+                    obs->EndWithClientInternalError();
                     throw;
                 }
             });
@@ -211,31 +184,27 @@ public:
 
         auto promise = NThreading::NewPromise<TStatus>();
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "Rollback", DbDriverState_->DiscoveryEndpoint);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "Rollback");
+        auto obs = MakeObservation("Rollback");
 
-        auto responseCb = [promise, session, span, metrics]
+        auto responseCb = [promise, session, obs]
             (Ydb::Query::RollbackTransactionResponse* response, TPlainStatus status) mutable {
                 try {
-                    span->SetPeerEndpoint(status.Endpoint);
+                    obs->SetPeerEndpoint(status.Endpoint);
                     if (response) {
                         NYdb::NIssue::TIssues opIssues;
                         NYdb::NIssue::IssuesFromMessage(response->issues(), opIssues);
                         TStatus rollbackTxStatus(TPlainStatus{static_cast<EStatus>(response->status()), std::move(opIssues),
                             status.Endpoint, std::move(status.Metadata)});
 
-                        span->End(rollbackTxStatus.GetStatus());
-                        metrics->End(rollbackTxStatus.GetStatus());
+                        obs->End(rollbackTxStatus.GetStatus());
 
                         promise.SetValue(std::move(rollbackTxStatus));
                     } else {
-                        span->End(status.Status);
-                        metrics->End(status.Status);
+                        obs->End(status.Status);
                         promise.SetValue(TStatus(std::move(status)));
                     }
                 } catch (...) {
-                    span->End(EStatus::CLIENT_INTERNAL_ERROR);
-                    metrics->End(EStatus::CLIENT_INTERNAL_ERROR);
+                    obs->EndWithClientInternalError();
                     promise.SetException(std::current_exception());
                 }
             };
@@ -263,32 +232,28 @@ public:
 
         auto promise = NThreading::NewPromise<TCommitTransactionResult>();
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "Commit", DbDriverState_->DiscoveryEndpoint);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "Commit");
+        auto obs = MakeObservation("Commit");
 
-        auto responseCb = [promise, session, span, metrics]
+        auto responseCb = [promise, session, obs]
             (Ydb::Query::CommitTransactionResponse* response, TPlainStatus status) mutable {
                 try {
-                    span->SetPeerEndpoint(status.Endpoint);
+                    obs->SetPeerEndpoint(status.Endpoint);
                     if (response) {
                         NYdb::NIssue::TIssues opIssues;
                         NYdb::NIssue::IssuesFromMessage(response->issues(), opIssues);
                         TStatus commitTxStatus(TPlainStatus{static_cast<EStatus>(response->status()), std::move(opIssues),
                             status.Endpoint, std::move(status.Metadata)});
 
-                        span->End(commitTxStatus.GetStatus());
-                        metrics->End(commitTxStatus.GetStatus());
+                        obs->End(commitTxStatus.GetStatus());
 
                         TCommitTransactionResult commitTxResult(std::move(commitTxStatus));
                         promise.SetValue(std::move(commitTxResult));
                     } else {
-                        span->End(status.Status);
-                        metrics->End(status.Status);
+                        obs->End(status.Status);
                         promise.SetValue(TCommitTransactionResult(TStatus(std::move(status))));
                     }
                 } catch (...) {
-                    span->End(EStatus::CLIENT_INTERNAL_ERROR);
-                    metrics->End(EStatus::CLIENT_INTERNAL_ERROR);
+                    obs->EndWithClientInternalError();
                     promise.SetException(std::current_exception());
                 }
             };
@@ -497,12 +462,11 @@ public:
         class TQueryClientGetSessionCtx : public NSessionPool::IGetSessionCtx {
         public:
             TQueryClientGetSessionCtx(std::shared_ptr<TQueryClient::TImpl> client, const TCreateSessionSettings& settings,
-                std::shared_ptr<TQuerySpan> span, std::shared_ptr<TQueryMetrics> metrics)
+                std::shared_ptr<TQueryObservation> observation)
                 : Promise(NThreading::NewPromise<TCreateSessionResult>())
                 , Client(client)
                 , RpcSettings(TRpcRequestSettings::Make(settings))
-                , Span(span)
-                , Metrics(metrics)
+                , Observation(std::move(observation))
             {}
 
             TAsyncCreateSessionResult GetFuture() {
@@ -511,30 +475,9 @@ public:
 
             void ReplyError(TStatus status) override {
                 TSession session;
-                if (Span) {
-                    Span->End(status.GetStatus());
+                if (Observation) {
+                    Observation->End(status.GetStatus());
                 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                if (Metrics) {
-                    Metrics->End(status.GetStatus());
-                }
-=======
->>>>>>> 1b2bf4fa5 (fixes)
-=======
-                if (Metrics) {
-                    Metrics->End(status.GetStatus());
-                }
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
->>>>>>> a979e6bda (fixes)
-=======
-                if (Metrics) {
-                    Metrics->End(status.GetStatus());
-                }
->>>>>>> dcae6d69e (fixes and add metric tests)
                 ScheduleReply(TCreateSessionResult(std::move(status), std::move(session)));
             }
 
@@ -547,67 +490,21 @@ public:
                     )
                 );
 
-                if (Span) {
-                    Span->End(EStatus::SUCCESS);
+                if (Observation) {
+                    Observation->End(EStatus::SUCCESS);
                 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                if (Metrics) {
-                    Metrics->End(EStatus::SUCCESS);
-                }
-=======
->>>>>>> 1b2bf4fa5 (fixes)
-=======
-                if (Metrics) {
-                    Metrics->End(EStatus::SUCCESS);
-                }
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
->>>>>>> a979e6bda (fixes)
-=======
-                if (Metrics) {
-                    Metrics->End(EStatus::SUCCESS);
-                }
->>>>>>> dcae6d69e (fixes and add metric tests)
                 ScheduleReply(std::move(val));
             }
 
             void ReplyNewSession() override {
                 Client->CreateAttachedSession(RpcSettings).Subscribe(
-                    [promise{std::move(Promise)}, span = Span, metrics = Metrics](TAsyncCreateSessionResult future) mutable
+                    [promise{std::move(Promise)}, obs = Observation](TAsyncCreateSessionResult future) mutable
                 {
                     auto val = future.ExtractValue();
-                    if (span) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
->>>>>>> dcae6d69e (fixes and add metric tests)
-                        span->SetPeerEndpoint(val.GetEndpoint());
-                        span->End(val.GetStatus());
+                    if (obs) {
+                        obs->SetPeerEndpoint(val.GetEndpoint());
+                        obs->End(val.GetStatus());
                     }
-                    if (metrics) {
-                        metrics->End(val.GetStatus());
-                    }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-                        span->End(val.GetStatus());
-                    }
->>>>>>> 1b2bf4fa5 (fixes)
-=======
->>>>>>> 1ca4253b5 (fixes and add metric tests)
-=======
-                        span->End(val.GetStatus());
-                    }
->>>>>>> a979e6bda (fixes)
-=======
->>>>>>> dcae6d69e (fixes and add metric tests)
                     promise.SetValue(std::move(val));
                 });
             }
@@ -633,13 +530,11 @@ public:
             NThreading::TPromise<TCreateSessionResult> Promise;
             std::shared_ptr<TQueryClient::TImpl> Client;
             const TRpcRequestSettings RpcSettings;
-            std::shared_ptr<TQuerySpan> Span;
-            std::shared_ptr<TQueryMetrics> Metrics;
+            std::shared_ptr<TQueryObservation> Observation;
         };
 
-        auto span = std::make_shared<TQuerySpan>(Tracer_, "CreateSession", DbDriverState_->DiscoveryEndpoint);
-        auto metrics = std::make_shared<TQueryMetrics>(MetricRegistry_, "CreateSession");
-        auto ctx = std::make_unique<TQueryClientGetSessionCtx>(shared_from_this(), settings, span, metrics);
+        auto obs = MakeObservation("GetSession");
+        auto ctx = std::make_unique<TQueryClientGetSessionCtx>(shared_from_this(), settings, obs);
         auto future = ctx->GetFuture();
         SessionPool_.GetSession(std::move(ctx));
 
@@ -683,10 +578,6 @@ public:
             ), NSessionPool::PERIODIC_ACTION_INTERVAL);
     }
 
-    std::shared_ptr<TQuerySpan> CreateRetrySpan(const std::string& operationName) {
-        return std::make_shared<TQuerySpan>(Tracer_, operationName, DbDriverState_->DiscoveryEndpoint);
-    }
-
     void CollectRetryStatAsync(EStatus status) {
         RetryOperationStatCollector_.IncAsyncRetryOperation(status);
     }
@@ -712,8 +603,20 @@ public:
     }
 
 private:
-    std::shared_ptr<NMetrics::ITracer> Tracer_;
-    std::shared_ptr<NMetrics::IMetricRegistry> MetricRegistry_;
+    std::shared_ptr<TQueryObservation> MakeObservation(const std::string& operationName) {
+        return std::make_shared<TQueryObservation>(
+            "Query",
+            &OperationStatCollector_,
+            Tracer_,
+            operationName,
+            DbDriverState_->DiscoveryEndpoint,
+            DbDriverState_->Database,
+            DbDriverState_->Log
+        );
+    }
+
+    std::shared_ptr<NTrace::ITracer> Tracer_;
+    NSdkStats::TStatCollector::TClientOperationStatCollector OperationStatCollector_;
     NSdkStats::TStatCollector::TClientRetryOperationStatCollector RetryOperationStatCollector_;
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> QuerySizeHistogram_;
     NSdkStats::TAtomicHistogram<::NMonitoring::THistogram> ParamsSizeHistogram_;
@@ -804,21 +707,13 @@ TAsyncStatus TQueryClient::RetryQuery(TQueryWithoutSessionFunc&& queryFunc, TRet
 }
 
 TStatus TQueryClient::RetryQuerySync(const TQuerySyncFunc& queryFunc, TRetryOperationSettings settings) {
-    auto parentSpan = Impl_->CreateRetrySpan("RetryQuery");
-    auto scope = parentSpan->Activate();
     NRetry::Sync::TRetryWithSession ctx(*this, queryFunc, settings);
-    auto status = ctx.Execute();
-    parentSpan->End(status.GetStatus());
-    return status;
+    return ctx.Execute();
 }
 
 TStatus TQueryClient::RetryQuerySync(const TQueryWithoutSessionSyncFunc& queryFunc, TRetryOperationSettings settings) {
-    auto parentSpan = Impl_->CreateRetrySpan("RetryQuery");
-    auto scope = parentSpan->Activate();
     NRetry::Sync::TRetryWithoutSession ctx(*this, queryFunc, settings);
-    auto status = ctx.Execute();
-    parentSpan->End(status.GetStatus());
-    return status;
+    return ctx.Execute();
 }
 
 TAsyncExecuteQueryResult TQueryClient::RetryQuery(const std::string& query, const TTxControl& txControl,
