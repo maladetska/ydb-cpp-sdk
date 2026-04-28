@@ -19,7 +19,7 @@
 #include <ydb-cpp-sdk/client/retry/retry.h>
 #include <ydb-cpp-sdk/client/trace/trace.h>
 
-#include <ydb/public/api/grpc/ydb_query_v1.grpc.pb.h>
+#include <src/api/grpc/ydb_query_v1.grpc.pb.h>
 
 #include <library/cpp/threading/future/core/coroutine_traits.h>
 
