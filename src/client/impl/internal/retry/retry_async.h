@@ -1,8 +1,17 @@
 #pragma once
 
+#include <ydb-cpp-sdk/client/types/status/status.h>
+
 #include <src/client/impl/internal/retry/retry.h>
+#include <src/client/impl/observability/span.h>
 
 #include <util/generic/function.h>
+
+#include <chrono>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <typeinfo>
 
 namespace NYdb::inline V3::NRetry::Async {
 
@@ -18,9 +27,45 @@ protected:
 
 public:
     TAsyncStatusType Execute() {
+        ParentSpan_ = Client_.Impl_->CreateRetryRootSpan();
+
+        // parentScope publishes the root retry span as the active thread-local
+        // context only for the synchronous prefix below (until DoRetry returns).
+        // The attempt span is parented to ParentSpan_ explicitly via
+        // CreateRetryAttemptSpan(..., ParentSpan_) in StartAttemptSpan(), so the
+        // root <- attempt link does NOT depend on this scope and survives the
+        // asynchronous boundary in the .Apply() callback below.
+        auto parentScope = ParentSpan_ ? ParentSpan_->Activate() : nullptr;
+
         this->RetryStartTime_ = TInstant::Now();
-        this->Retry();
-        return this->Promise_.GetFuture();
+        TPtr self(this);
+        DoRetry(self);
+
+        return this->Promise_.GetFuture().Apply(
+            [self](const auto& f) mutable {
+                try {
+                    auto value = f.GetValue();
+                    if (self->ParentSpan_) {
+                        self->ParentSpan_->SetRetryCount(self->RetryNumber_);
+                        self->ParentSpan_->End(value.GetStatus());
+                    }
+                    return value;
+                } catch (...) {
+                    if (self->ParentSpan_) {
+                        self->ParentSpan_->SetRetryCount(self->RetryNumber_);
+                        try {
+                            std::rethrow_exception(std::current_exception());
+                        } catch (const std::exception& e) {
+                            self->ParentSpan_->RecordException(typeid(e).name(), e.what());
+                        } catch (...) {
+                            self->ParentSpan_->RecordException("unknown", "unknown exception");
+                        }
+                        self->ParentSpan_->End(EStatus::CLIENT_INTERNAL_ERROR);
+                    }
+                    throw;
+                }
+            }
+        );
     }
 
 protected:
@@ -35,21 +80,27 @@ protected:
     virtual TAsyncStatusType RunOperation() = 0;
 
     static void DoRetry(TPtr self) {
+        self->StartAttemptSpan();
+
+        auto scope = self->AttemptSpan_ ? self->AttemptSpan_->Activate() : nullptr;
         self->Retry();
     }
 
     static void DoBackoff(TPtr self, bool fast) {
         auto backoffSettings = fast ? self->Settings_.FastBackoffSettings_
                                     : self->Settings_.SlowBackoffSettings_;
-        AsyncBackoff(self->Client_.Impl_, backoffSettings, self->RetryNumber_,
+        const auto backoff = AsyncBackoff(self->Client_.Impl_, backoffSettings, self->RetryNumber_,
             [self]() {DoRetry(self);});
+        self->LastBackoffMs_ = std::chrono::duration_cast<std::chrono::milliseconds>(backoff).count();
     }
 
     static void HandleExceptionAsync(TPtr self, std::exception_ptr e) {
+        self->EndAttemptSpan(EStatus::CLIENT_INTERNAL_ERROR);
         self->Promise_.SetException(e);
     }
 
     static void HandleStatusAsync(TPtr self, const TStatusType& status) {
+        self->EndAttemptSpan(status.GetStatus());
         auto nextStep = self->GetNextStep(status);
         if (nextStep != NextStep::Finish) {
             self->RetryNumber_++;
@@ -79,6 +130,23 @@ protected:
             }
         );
     }
+
+private:
+    void StartAttemptSpan() {
+        AttemptSpan_ = Client_.Impl_->CreateRetryAttemptSpan(
+            this->RetryNumber_, LastBackoffMs_, ParentSpan_);
+    }
+
+    void EndAttemptSpan(EStatus status) {
+        if (AttemptSpan_) {
+            AttemptSpan_->End(status);
+            AttemptSpan_.reset();
+        }
+    }
+
+    std::shared_ptr<NObservability::TRequestSpan> ParentSpan_;
+    std::shared_ptr<NObservability::TRequestSpan> AttemptSpan_;
+    std::int64_t LastBackoffMs_ = 0;
 };
 
 template <typename TClient, typename TOperation, typename TAsyncStatusType = TFunctionResult<TOperation>>

@@ -3,6 +3,7 @@
 #include <ydb-cpp-sdk/client/types/status_codes.h>
 #include <ydb-cpp-sdk/client/metrics/metrics.h>
 
+#include <src/client/impl/observability/error_category/error_category.h>
 #include <src/library/grpc/client/grpc_client_low.h>
 #include <library/cpp/monlib/metrics/metric_registry.h>
 #include <library/cpp/monlib/metrics/histogram_collector.h>
@@ -326,10 +327,10 @@ public:
                     {"db.namespace", Database_},
                     {"db.operation.name", operationName},
                     {"ydb.client.api", YdbClientApiAttributeValue(ClientType_)},
-                    {"db.response.status_code", TStringBuilder() << status},
                 };
                 if (status != EStatus::SUCCESS) {
-                    labels["error.type"] = TStringBuilder() << status;
+                    labels["db.response.status_code"] = TStringBuilder() << status;
+                    labels["error.type"] = std::string(NObservability::CategorizeErrorType(status));
                 }
                 ExternalRegistry_->Histogram(
                     "db.client.operation.duration",

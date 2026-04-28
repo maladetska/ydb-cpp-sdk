@@ -9,8 +9,8 @@
 #include <src/client/impl/internal/retry/retry_sync.h>
 #undef INCLUDE_YDB_INTERNAL_H
 
-#include <src/api/grpc/ydb_table_v1.grpc.pb.h>
-#include <src/api/protos/ydb_table.pb.h>
+#include <ydb/public/api/grpc/ydb_table_v1.grpc.pb.h>
+#include <ydb/public/api/protos/ydb_table.pb.h>
 #include <src/client/impl/stats/stats.h>
 #include <ydb-cpp-sdk/client/proto/accessor.h>
 #include <ydb-cpp-sdk/client/value/value.h>
@@ -1590,23 +1590,21 @@ TTypeBuilder TTableClient::GetTypeBuilder() {
 ////////////////////////////////////////////////////////////////////////////////
 
 TAsyncStatus TTableClient::RetryOperation(TOperationFunc&& operation, const TRetryOperationSettings& settings) {
-    TRetryContextAsync::TPtr ctx(new NRetry::Async::TRetryWithSession(*this, std::move(operation), settings));
-    return ctx->Execute();
+    return TRetryContextAsync::TPtr(
+        new NRetry::Async::TRetryWithSession(*this, std::move(operation), settings))->Execute();
 }
 
 TAsyncStatus TTableClient::RetryOperation(TOperationWithoutSessionFunc&& operation, const TRetryOperationSettings& settings) {
-    TRetryContextAsync::TPtr ctx(new NRetry::Async::TRetryWithoutSession(*this, std::move(operation), settings));
-    return ctx->Execute();
+    return TRetryContextAsync::TPtr(
+        new NRetry::Async::TRetryWithoutSession(*this, std::move(operation), settings))->Execute();
 }
 
 TStatus TTableClient::RetryOperationSync(const TOperationWithoutSessionSyncFunc& operation, const TRetryOperationSettings& settings) {
-    NRetry::Sync::TRetryWithoutSession ctx(*this, operation, settings);
-    return ctx.Execute();
+    return NRetry::Sync::TRetryWithoutSession(*this, operation, settings).Execute();
 }
 
 TStatus TTableClient::RetryOperationSync(const TOperationSyncFunc& operation, const TRetryOperationSettings& settings) {
-    NRetry::Sync::TRetryWithSession ctx(*this, operation, settings);
-    return ctx.Execute();
+    return NRetry::Sync::TRetryWithSession(*this, operation, settings).Execute();
 }
 
 NThreading::TFuture<void> TTableClient::Stop() {
@@ -2511,10 +2509,6 @@ uint64_t TIndexDescription::GetSizeBytes() const {
     return SizeBytes_;
 }
 
-void TIndexDescription::SetParallel(uint32_t parallel) {
-    Parallel_ = parallel;
-}
-
 TIndexDescription TIndexDescription::CreateGlobalIndex(
     const std::string& name,
     const std::vector<std::string>& indexColumns,
@@ -3059,9 +3053,6 @@ TIndexDescription TIndexDescription::FromProto(const TProto& proto) {
     if constexpr (std::is_same_v<TProto, Ydb::Table::TableIndexDescription>) {
         result.SizeBytes_ = proto.size_bytes();
     }
-    if constexpr (std::is_same_v<TProto, Ydb::Table::TableIndex>) {
-        result.Parallel_ = proto.parallel();
-    }
 
     return result;
 }
@@ -3073,8 +3064,6 @@ void TIndexDescription::SerializeTo(Ydb::Table::TableIndex& proto) const {
     }
 
     *proto.mutable_data_columns() = {DataColumns_.begin(), DataColumns_.end()};
-
-    proto.set_parallel(Parallel_);
 
     switch (IndexType_) {
     case EIndexType::GlobalSync: {

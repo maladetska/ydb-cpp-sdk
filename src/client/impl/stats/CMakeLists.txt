@@ -5,6 +5,7 @@ target_link_libraries(client-impl-ydb_stats PUBLIC
   grpc-client
   monlib-metrics
   client-metrics
+  impl-observability-error_category
 )
 
 target_sources(client-impl-ydb_stats PRIVATE

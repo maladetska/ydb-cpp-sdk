@@ -2,7 +2,9 @@
 #include <ydb-cpp-sdk/client/query/client.h>
 #include <ydb-cpp-sdk/client/query/tx.h>
 #include <ydb-cpp-sdk/client/table/table.h>
+#include <ydb-cpp-sdk/client/params/params.h>
 #include <ydb-cpp-sdk/client/retry/retry.h>
+#include <ydb-cpp-sdk/client/types/status/status.h>
 
 #include <ydb-cpp-sdk/open_telemetry/trace.h>
 #include <ydb-cpp-sdk/open_telemetry/metrics.h>
@@ -22,6 +24,8 @@
 
 #include <opentelemetry/trace/provider.h>
 #include <opentelemetry/trace/scope.h>
+
+#include <util/string/cast.h>
 
 #include <atomic>
 #include <chrono>
@@ -375,6 +379,12 @@ int main(int argc, char** argv) {
         .DefaultValue(std::to_string(cfg.RetryOps)).StoreResult(&cfg.RetryOps);
 
     NLastGetopt::TOptsParseResult parsedOpts(&opts, argc, argv);
+
+    if (cfg.Endpoint.rfind("grpc://", 0) == 0) {
+        cfg.Endpoint.erase(0, 7);
+    } else if (cfg.Endpoint.rfind("grpcs://", 0) == 0) {
+        cfg.Endpoint.erase(0, 8);
+    }
 
     std::cout << "Initializing OpenTelemetry..." << std::endl;
     std::cout << "  OTLP endpoint: " << cfg.OtlpEndpoint << std::endl;
